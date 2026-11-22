@@ -2,9 +2,9 @@
 # TestFlight hoch. Start per Hand: Actions → „iOS-Build“ → „Run workflow“.
 #
 # Braucht zwei Repository-Secrets (Settings → Secrets and variables → Actions):
-#   EXPO_TOKEN      Zugangsschlüssel des Expo-Kontos en0o0n (expo.dev → Account settings → Access tokens). Damit holt der Bau Zertifikat
+#   EXPO_TOKEN      Zugangsschlüssel des Expo-Kontos altraex (expo.dev → Account settings → Access tokens). Damit holt der Bau Zertifikat
 #                   und Profil aus dem Expo-Konto, und die Build-Nummer zählt dort weiter (appVersionSource "remote").
-#   ASC_API_KEY_P8  der komplette Inhalt der Datei AuthKey_DNMHB7CB28.p8 (Schlüssel „asoo-bau“, gilt für das ganze Team
+#   ASC_API_KEY_P8  der komplette Inhalt der Datei AuthKey_TRBM8BY649.p8 (Schlüssel „claude“, Admin, gilt für das ganze Team
 #                   Feierabend Code, also auch für HR Bots) für den Upload zu TestFlight.
 #
 # Vor dem ersten Lauf: `eas init` (legt das Expo-Projekt „hrbots“ an, schreibt extra.eas.projectId in app.json) und unten
@@ -84,9 +84,7 @@ jobs:
         if: ${{ inputs.submit }}
         env:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-          # TODO: Apple-ID der App „HR Bots“ aus App Store Connect eintragen (App-Informationen → „Apple ID“, nur Ziffern),
-          #       sobald der App-Eintrag angelegt ist. Asoo hatte 6836821648 – das hier ist eine NEUE App.
-          ASC_APP_ID: 'TODO_ASC_APP_ID'
+          ASC_APP_ID: '6838086083'
         run: |
           if [ "$ASC_APP_ID" = "TODO_ASC_APP_ID" ]; then echo "::error::ASC_APP_ID fehlt noch (siehe TODO in ios-build.yml)"; exit 1; fi
           printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc.p8"
@@ -94,7 +92,7 @@ jobs:
           node -e "
             const fs = require('fs');
             const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
-            eas.submit = { production: { ios: { ascAppId: process.env.ASC_APP_ID, ascApiKeyPath: process.env.RUNNER_TEMP + '/asc.p8', ascApiKeyId: 'DNMHB7CB28', ascApiKeyIssuerId: '9d18973b-2424-4ff7-a158-d0107471ac36' } } };
+            eas.submit = { production: { ios: { ascAppId: process.env.ASC_APP_ID, ascApiKeyPath: process.env.RUNNER_TEMP + '/asc.p8', ascApiKeyId: 'TRBM8BY649', ascApiKeyIssuerId: '9d18973b-2424-4ff7-a158-d0107471ac36' } } };
             fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
           "
           eas submit --platform ios --profile production --path "$RUNNER_TEMP/hrbots.ipa" --non-interactive

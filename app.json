@@ -2,7 +2,7 @@
   "expo": {
     "name": "HR Bots",
     "slug": "hrbots",
-    "owner": "en0o0n",
+    "owner": "altraex",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,10 @@
       "appleTeamId": "844JD2257D",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleLocalizations": ["en", "de"],
+        "CFBundleLocalizations": [
+          "en",
+          "de"
+        ],
         "CFBundleDevelopmentRegion": "en"
       }
     },
@@ -39,6 +42,16 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "e8378f4c-31bd-47d6-80af-9f2ea3a4eb74"
+      }
     }
   }
 }
