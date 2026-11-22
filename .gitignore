@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+.tmp/
+*.p8
+*.p12
+*.mobileprovision
+*.ipa
+.env*
+npm-debug.*
+.DS_Store

@@ -1,0 +1,101 @@
+# Baut die iPhone-App auf einem Mac von GitHub (kostenlose Actions-Minuten) statt auf den Servern von Expo, und lädt sie zu
+# TestFlight hoch. Start per Hand: Actions → „iOS-Build“ → „Run workflow“.
+#
+# Braucht zwei Repository-Secrets (Settings → Secrets and variables → Actions):
+#   EXPO_TOKEN      Zugangsschlüssel des Expo-Kontos en0o0n (expo.dev → Account settings → Access tokens). Damit holt der Bau Zertifikat
+#                   und Profil aus dem Expo-Konto, und die Build-Nummer zählt dort weiter (appVersionSource "remote").
+#   ASC_API_KEY_P8  der komplette Inhalt der Datei AuthKey_DNMHB7CB28.p8 (Schlüssel „asoo-bau“, gilt für das ganze Team
+#                   Feierabend Code, also auch für HR Bots) für den Upload zu TestFlight.
+#
+# Vor dem ersten Lauf: `eas init` (legt das Expo-Projekt „hrbots“ an, schreibt extra.eas.projectId in app.json) und unten
+# ASC_APP_ID eintragen (TODO).
+#
+# Ein Bau dauert etwa 30–50 Minuten; die .ipa bleibt 7 Tage am Lauf hängen.
+name: iOS-Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Mac: macos-26 (Xcode 26) oder xcode-27 (Vorschau mit Xcode 27)'
+        type: choice
+        options: [macos-26, xcode-27]
+        default: macos-26
+      submit:
+        description: 'Danach zu TestFlight hochladen'
+        type: boolean
+        default: true
+
+# nie zwei Bauten gleichzeitig: beide würden dieselbe nächste Build-Nummer bei Expo holen
+concurrency:
+  group: hrbots-ios-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Neueste Xcode-Version wählen
+        run: |
+          XCODE=$(node -e "
+            const fs = require('fs');
+            const apps = fs.readdirSync('/Applications').filter((n) => /^Xcode_[0-9.]+\.app$/.test(n));
+            const v = (n) => n.match(/[0-9.]+/)[0].split('.').map(Number);
+            apps.sort((a, b) => { const x = v(a), y = v(b); for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0; });
+            console.log('/Applications/' + (apps.pop() ?? 'Xcode.app'));
+          ")
+          echo "Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Pakete
+        run: npm ci
+
+      - name: EAS CLI
+        run: npm install -g eas-cli@latest
+
+      - name: Bauen
+        # Bauordner nicht unter /var (auf macOS nur ein Link auf /private/var), sonst findet Metro Dateien nicht (Erfahrung mit THFM, 09.11.2026)
+        env:
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/eas-build
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/tmp"
+          export TMPDIR="$RUNNER_TEMP/tmp"
+          eas build --platform ios --profile production --local --non-interactive --output "$RUNNER_TEMP/hrbots.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hrbots-ipa
+          path: ${{ runner.temp }}/hrbots.ipa
+          retention-days: 7
+
+      - name: Zu TestFlight hochladen
+        if: ${{ inputs.submit }}
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          # TODO: Apple-ID der App „HR Bots“ aus App Store Connect eintragen (App-Informationen → „Apple ID“, nur Ziffern),
+          #       sobald der App-Eintrag angelegt ist. Asoo hatte 6836821648 – das hier ist eine NEUE App.
+          ASC_APP_ID: 'TODO_ASC_APP_ID'
+        run: |
+          if [ "$ASC_APP_ID" = "TODO_ASC_APP_ID" ]; then echo "::error::ASC_APP_ID fehlt noch (siehe TODO in ios-build.yml)"; exit 1; fi
+          printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc.p8"
+          # Upload-Angaben nur für diesen Lauf: die Schlüsseldatei liegt auf dem Mac, die Kennungen sind nicht geheim
+          node -e "
+            const fs = require('fs');
+            const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+            eas.submit = { production: { ios: { ascAppId: process.env.ASC_APP_ID, ascApiKeyPath: process.env.RUNNER_TEMP + '/asc.p8', ascApiKeyId: 'DNMHB7CB28', ascApiKeyIssuerId: '9d18973b-2424-4ff7-a158-d0107471ac36' } } };
+            fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
+          "
+          eas submit --platform ios --profile production --path "$RUNNER_TEMP/hrbots.ipa" --non-interactive
+          rm -f "$RUNNER_TEMP/asc.p8"

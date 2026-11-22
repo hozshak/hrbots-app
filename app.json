@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "HR Bots",
+    "slug": "hrbots",
+    "owner": "en0o0n",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "hrbots",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07080b",
+    "ios": {
+      "bundleIdentifier": "de.feierabendcode.hrbots",
+      "supportsTablet": false,
+      "appleTeamId": "844JD2257D",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleLocalizations": ["en", "de"],
+        "CFBundleDevelopmentRegion": "en"
+      }
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#07080b",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-localization"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
