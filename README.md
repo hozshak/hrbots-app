@@ -8,17 +8,25 @@ API-Vertrag: `D:\SL\claude\highrise-manager\worker\API.md` (Basis `https://highr
 („noch 2 Std. 13 Min.“, „Unbegrenzt“, „Keine Laufzeit übrig“). Keine Registrierung in der App. Konto löschen: Konto → Konto löschen.
 Bot-Token wird nach dem Speichern nie angezeigt („Schlüssel gespeichert“).
 
-## Aufbau
-- `src/api/` – `types.ts` (Datentypen), `client.ts` (je Endpunkt eine Funktion), `transport.ts` (fetch + Token in SecureStore,
-  Fehler nach `error`-Code), `mock.ts` (Test-Server im Speicher), `room.ts` (Raum-Link/ID prüfen)
-- `src/app/` – Bildschirme: `login`, `discord` (Discord-Pflicht), `(tabs)/` mit **Bots · Hilfe · Konto**, `new` (geführter Assistent),
-  `bot/[kind]/[id]` (Statuskarte mit Schalter, aufklappbare Abschnitte, „Erweitert“, Löschen), `delete-account`
-- `src/components/` – Oberfläche (`ui.tsx`), Bot-Karte, „Beheben“-Blatt (`FixItSheet.tsx`), Anleitungen (`guide.tsx`), Einstellungen je Bot-Art (`detail/`)
-- `src/lib/` – Sprache (`i18n.ts`, Englisch + Deutsch nach Gerätesprache), Hilfetexte/Befehle/Vorlagen (`content.ts`), Daten-Cache und
-  Start/Stopp mit Nachfragen (`query.ts`), Anmeldung (`session.ts`), Farben (`theme.ts`)
+## Aufbau (ab 1.1.0: „so einfach, dass Kinder es können“)
+- **Design wie die Webseite** („Neon Grid“, `worker/src/lib/theme.ts`): Farben/Radien in `src/lib/theme.ts`, Überschriften
+  `Syne` (@expo-google-fonts/syne), Zahlen/Code `DM Mono` (@expo-google-fonts/dm-mono), Haupt-Knöpfe Verlauf Cyan→Lime mit Leuchten.
+- **Sicherer Bereich**: jede Seite nutzt `<Screen>` (`src/components/ui.tsx`) – Kopfzeile in `SafeAreaView` (nie unter Statusleiste/
+  Dynamic Island), eigene Kopfzeilen statt der System-Kopfzeile, feste untere Leiste.
+- **Sprachen** Englisch/Deutsch/Arabisch (`src/lib/lang/*.ts`, Hilfetexte in `src/lib/content.ts`). Konto → Sprache: Automatisch /
+  Deutsch / English / العربية, gespeichert in SecureStore (Web: localStorage), wirkt sofort. Arabisch spiegelt per `direction: 'rtl'`
+  an der Wurzel (kein `I18nManager.forceRTL`, kein Neustart nötig); Pfeile werden mitgespiegelt.
+- `src/api/` – `types.ts`, `client.ts` (je Endpunkt eine Funktion, Formen genau nach API.md Stand 23.11.2026), `transport.ts`, `mock.ts`.
+- `src/app/` – `(tabs)/` **Bots · Hilfe · Konto**; `new` (Assistent, eine Frage pro Seite); `bot/[kind]/[id]/index` (Bot-Menü:
+  AN/AUS + große Kacheln) und `bot/[kind]/[id]/[page]` (eine Aufgabe pro Seite: say, helpers, watch, rules, places, look, music,
+  tickets, stand, activity, help, **expert**); `language`, `password`, `link` (Highrise verbinden), `radios`, `tickets/…`
+  (Nachrichten ans Team), `chat` (Hilfe-Roboter), `delete-account`, `login`, `discord`.
+- `src/components/` – `ui.tsx` (Bausteine), `BotCard.tsx` (AN/AUS-Knopf, Restzeit-Balken), `editors.tsx` (Listen mit „+“/Mülleimer),
+  `pages/*` (Inhalte der Bot-Seiten), `FixItSheet.tsx`, `guide.tsx` („Zeig mir, wie“).
+- Alles Technische (Koordinaten, Logs, Outfit-Codes, Icecast, Chat-Wörter, Raum/Schlüssel, Bot-Motor) liegt unter „Experten-Einstellungen“.
 
-Die Typen in `src/api/types.ts` und der Mock (`src/api/mock.ts`) sind genau mit dem Server-Code abgeglichen
-(`worker/src/routes/api_v1.ts`; Formen auch in API.md).
+**Gold**: Konto zeigt „Mein Gold“ nur zum Ansehen (GET /me/wallet) + Verlauf in einfachen Worten. Kein Kaufen/Mieten/Verlängern,
+keine Preise, kein Hinweis, wo man kauft. Gold-Felder der API (mod `vip.price`, `wallet`, music `gold_per_ticket`) werden nie gezeigt/gesendet.
 
 ## Gegen einen lokalen Server testen
 Server: im Ordner `highrise-manager/worker` `npx wrangler dev --local --port 8788 --test-scheduled --var AGENT_URL:http://127.0.0.1:9 --var AGENT_SECRET:local-test`.
@@ -36,8 +44,9 @@ Anmelden mit beliebigem Namen und Passwort. Besondere Testfälle im Mock:
 - Benutzer `nodiscord` → Discord-Seite; `disabled` → Konto gesperrt
 - Bot „Party Welcome“ → keine Laufzeit; „Chill Radio“ → 1. Start: Server antwortet nicht, 2. Start: stürzt ab (Beheben-Blatt), 3. klappt
 - Raum-ID `000000000000000000000000` → ungültiger Raum
+- Highrise verbinden: Code `ABC234` klappt, `USED00` = schon benutzt, `TAKEN0` = anderes Konto; Passwort ändern: altes `wrong` = falsch
 
-Sprache testen: `EXPO_PUBLIC_LANG=de` erzwingt Deutsch. Prüfen: `npm run typecheck`.
+Sprache testen: in der App Konto → Sprache, oder `EXPO_PUBLIC_LANG=de|en|ar` setzt die Geräte-Sprache für „Automatisch“. Prüfen: `npm run typecheck`.
 Hinweis: Einfügen aus der Zwischenablage geht im Browser-Test meist nicht (Browser-Erlaubnis), am iPhone schon.
 
 ## Bauen (wie Asoo)

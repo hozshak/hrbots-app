@@ -72,7 +72,7 @@ export interface WelcomeMessage {
   priority?: number;
 }
 
-export interface WelcomeSettings extends CommonSettings {
+export interface WelcomeSettings extends CommonSettings, WelcomeExtra {
   messages: WelcomeMessage[];
   admins: string[];
 }
@@ -106,7 +106,7 @@ export interface TeleportDestination {
   min_role: MinRole;
 }
 
-export interface ModSettings extends CommonSettings {
+export interface ModSettings extends CommonSettings, ModExtra {
   /** leerer String, wenn nicht gesetzt */
   owner_username: string;
   roles: Record<ModRole, string[]>;
@@ -121,7 +121,7 @@ export type MusicRole = 'mod' | 'dj' | 'vip';
 export const MUSIC_ROLES: MusicRole[] = ['mod', 'dj', 'vip'];
 export type MusicAction = 'play' | 'play_top' | 'skip' | 'clearqueue' | 'volup' | 'voldown' | 'autoplay_on' | 'autoplay_off';
 
-export interface MusicSettings extends CommonSettings {
+export interface MusicSettings extends CommonSettings, MusicExtra {
   /** leerer String, wenn nicht gesetzt */
   owner_username: string;
   roles: Record<MusicRole, string[]>;
@@ -149,6 +149,10 @@ export interface CreateBotInput {
 }
 
 export interface UpdateBotInput {
+  /** Bot-Programm (Webseite „Runtime“); wirkt nach Stop + Start */
+  engine?: BotEngine;
+  /** nur mod/music; "" = keiner */
+  owner_username?: string;
   name?: string;
   room?: string;
   bot_token?: string;
@@ -205,4 +209,134 @@ export const INPUT_LIMITS = {
   songMin: 1,
   songMax: 1440,
   query: 200,
+} as const;
+
+// =====================================================================================================================
+// Erweiterungen (alle Webseiten-Funktionen außer Kaufen/Mieten). Formen genau nach API.md (Stand 23.11.2026).
+// Gold-Felder, die der Server mitliefert (mod `vip.price`, `wallet`, music `gold_per_ticket`), zeigt die App bewusst NICHT an.
+// =====================================================================================================================
+
+/** Bot-Programm (Webseite: „Runtime“ js|python). In der App nur unter „Experten-Einstellungen“ als „Bot-Motor“. */
+export type BotEngine = 'js' | 'python';
+
+/** Welcome: „Beobachten“ (position_tracking) – der Bot flüstert den Helfern, wo die Person ist. */
+export interface TrackedUser {
+  id: number;
+  username: string;
+  active: boolean;
+}
+
+export interface ModWarn { username: string; count: number }
+export interface ModMute { id: number; username: string; muted_by: string | null; created_at: string | null }
+export interface ModReport { id: number; reporter: string; reported: string; reason: string | null; status: 'open' | 'closed'; created_at: string | null }
+export interface ModLogEntry { id: number; action: string; target: string | null; done_by: string | null; reason: string | null; created_at: string | null }
+export interface ModGuest { username: string; first_seen: string | null }
+/** VIP-Bereich wie gespeichert (Quadrat x1/z1–x2/z2) */
+export interface VipZone { id: number; name: string; x1: number; z1: number; x2: number; z2: number }
+export interface OutfitItem { id: string; palette: number }
+export interface ModOutfit { id: number; name: string; items: OutfitItem[] }
+
+export interface ModModeration {
+  mutes: ModMute[];
+  warns: ModWarn[];
+  bans_count: number;
+  reports: ModReport[];
+  logs: ModLogEntry[];
+}
+
+export interface WelcomeExtra {
+  engine?: BotEngine;
+  tracking?: TrackedUser[];
+}
+export interface ModExtra {
+  engine?: BotEngine;
+  moderation?: ModModeration;
+  /** Mod-Beobachten: nur Namen */
+  tracking?: string[];
+  guests?: ModGuest[];
+  /** `price` (Gold) wird NICHT angezeigt */
+  vip?: { price?: number; safe_spot: { x: number; y: number; z: number } | null; zones: VipZone[] };
+  outfits?: { rotate: boolean; interval_minutes: number; list: ModOutfit[] };
+}
+export interface MusicTicket { username: string; tickets: number }
+export interface MusicExtra {
+  engine?: BotEngine;
+  icecast?: { host: string; port: number; user: string; mount: string; password_set: boolean } | null;
+  tickets?: MusicTicket[];
+}
+
+export interface MusicRecentCommand {
+  id: number;
+  action: string;
+  args: { query?: string } | null;
+  requested_by: string | null;
+  status: 'pending' | 'processing' | 'done' | 'error' | string;
+  result: string | null;
+  created_at: string | null;
+  executed_at?: string | null;
+}
+export interface AutoplayFile { name: string; size: number }
+
+/** GET /radio – eigene Radiosender (ohne Preise; Kaufen/Verlängern gibt es in der App nicht) */
+export interface RadioStation {
+  id: number;
+  name: string;
+  mount: string;
+  stream_url: string;
+  source: { host: string; port: number; mount: string; user: string; password_set: boolean };
+  /** inklusive Station eines Music-Bots */
+  bundled_bot_id: number | null;
+  last_synced_bot_id: number | null;
+  active: boolean;
+  unlimited: boolean;
+  expires_at: string | null;
+  deletable: boolean;
+  created_at: string | null;
+  status?: RadioStatus;
+}
+export interface RadioStatus { live: boolean; listeners: number | null }
+
+export type TicketStatus = 'open' | 'answered' | 'closed';
+export interface SupportTicket {
+  id: number;
+  subject: string;
+  status: TicketStatus;
+  created_at: string | null;
+  updated_at: string | null;
+}
+export interface SupportReply { id?: number; author: 'user' | 'admin'; author_name: string | null; body: string; image?: string | null; created_at: string | null }
+export interface SupportTicketDetail extends SupportTicket {
+  body: string;
+  bot: { kind: BotKind; id: number; name: string } | null;
+  image?: string | null;
+}
+
+/** Highrise-Konto verknüpfen (Code aus dem Bank-Raum) */
+export interface HighriseLink { linked: boolean; highrise_username: string | null }
+export interface DiscordInfo { linked: boolean; discord_username: string | null; required: boolean; verify_url: string; invite_url: string | null }
+
+/** GET /me/wallet – nur ansehen (kein Kaufen/Mieten in der App) */
+export interface WalletTx { amount: number; reason: string; created_at: string | null }
+export interface Wallet {
+  gold_balance: number;
+  highrise_linked: boolean;
+  highrise_username: string | null;
+  transactions: WalletTx[];
+}
+
+export interface ChatMessage { role: 'user' | 'assistant'; content: string }
+
+export const EXTRA_LIMITS = {
+  ticketSubject: 200,
+  ticketBodyMin: 10,
+  ticketBody: 4000,
+  replyMin: 2,
+  passwordMin: 4,
+  passwordMax: 200,
+  linkCode: 6,
+  outfitName: 40,
+  outfitItems: 50,
+  cmdWord: 20,
+  maxOpenTickets: 5,
+  chatMessage: 2000,
 } as const;

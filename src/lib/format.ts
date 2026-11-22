@@ -1,6 +1,6 @@
-// Anzeige von Laufzeit und Zeitangaben – neutral, ohne Preise oder Kauf-Hinweise (App-Store-Regel 3.1.3(f)).
+// Anzeige von Restzeit und Zeitangaben – neutral, ohne Preise oder Kauf-Hinweise (App-Store-Regel 3.1.3(f)).
 import type { Bot } from '@/api';
-import { lang, t } from './i18n';
+import { locale, t } from './i18n';
 
 /** verbleibende Sekunden jetzt; läuft der Bot, zählt die Zeit seit dem Abruf mit herunter */
 export function secondsLeft(bot: Bot, nowMs = Date.now()) {
@@ -9,69 +9,63 @@ export function secondsLeft(bot: Bot, nowMs = Date.now()) {
   return Math.max(0, base - Math.floor((nowMs - bot.received_at) / 1000));
 }
 
-export function runtimeValue(bot: Bot, nowMs = Date.now()) {
-  if (bot.runtime.unlimited) return t('runtime.unlimited');
+export const hasRuntime = (bot: Bot, nowMs = Date.now()) => bot.runtime.unlimited || secondsLeft(bot, nowMs) > 0;
+
+/** „noch 2 Std. 13 Min.“ · „Läuft immer“ · „Keine Zeit mehr“ */
+export function timeLeftWords(bot: Bot, nowMs = Date.now()) {
+  if (bot.runtime.unlimited) return t('time.unlimited');
   const s = secondsLeft(bot, nowMs);
-  if (s <= 0) return null;
+  if (s <= 0) return t('time.none');
   const totalMin = Math.max(1, Math.floor(s / 60));
   const d = Math.floor(totalMin / 1440);
   const h = Math.floor((totalMin % 1440) / 60);
   const m = totalMin % 60;
-  if (d > 0) return t('runtime.dh', { d, h });
-  if (h > 0) return t('runtime.hm', { h, m });
-  return t('runtime.m', { m });
+  const v = d >= 2 ? t('time.d', { d }) : d === 1 ? t('time.d1', { h }) : h > 0 ? t('time.hm', { h, m }) : t('time.m', { m });
+  return t('time.left', { t: v });
 }
 
-/** „Runtime: 2 h 13 min“ · „Runtime: Unlimited“ · „No runtime left“ */
-export function runtimeLine(bot: Bot, nowMs = Date.now()) {
-  const v = runtimeValue(bot, nowMs);
-  return v ? t('runtime.label', { value: v }) : t('runtime.none');
+/** Füllstand für den kleinen Balken: 1 Tag oder mehr = voll */
+export function timeFraction(bot: Bot, nowMs = Date.now()) {
+  if (bot.runtime.unlimited) return 1;
+  return Math.max(0, Math.min(1, secondsLeft(bot, nowMs) / 86400));
 }
 
-export function relTime(isoStr: string, nowMs = Date.now()) {
-  const ms = Date.parse(isoStr.includes('T') ? isoStr : isoStr.replace(' ', 'T') + 'Z');
-  if (!Number.isFinite(ms)) return isoStr;
+export function parseIso(isoStr: string | null | undefined) {
+  if (!isoStr) return NaN;
+  return Date.parse(isoStr.includes('T') ? isoStr : isoStr.replace(' ', 'T') + 'Z');
+}
+
+export function relTime(isoStr: string | null | undefined, nowMs = Date.now()) {
+  const ms = parseIso(isoStr);
+  if (!Number.isFinite(ms)) return '';
   const min = Math.floor((nowMs - ms) / 60000);
-  if (min < 1) return t('time.now');
-  if (min < 60) return t('time.min', { n: min });
+  if (min < 1) return t('ago.now');
+  if (min < 60) return t('ago.min', { n: min });
   const h = Math.floor(min / 60);
-  if (h < 24) return t('time.hour', { n: h });
-  return t('time.day', { n: Math.floor(h / 24) });
+  if (h < 24) return t('ago.h', { n: h });
+  const d = Math.floor(h / 24);
+  return d === 1 ? t('ago.d1') : t('ago.d', { n: d });
 }
 
-export function shortDate(isoStr: string) {
-  const ms = Date.parse(isoStr);
-  if (!Number.isFinite(ms)) return isoStr;
+export function shortDate(isoStr: string | null | undefined) {
+  const ms = parseIso(isoStr);
+  if (!Number.isFinite(ms)) return '';
   try {
-    return new Date(ms).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
   } catch {
     return new Date(ms).toISOString().slice(0, 10);
   }
 }
 
-/** Laufzeit in Worten für Karten: „3 days left“, „2 h 13 min left“, „Unlimited“, „No runtime left“ */
-export function runtimeWords(bot: Bot, nowMs = Date.now()) {
-  if (bot.runtime.unlimited) return t('rt.unlimited');
-  const s = secondsLeft(bot, nowMs);
-  if (s <= 0) return t('rt.none');
-  const totalMin = Math.max(1, Math.floor(s / 60));
-  const d = Math.floor(totalMin / 1440);
-  const h = Math.floor((totalMin % 1440) / 60);
-  const m = totalMin % 60;
-  if (d >= 2) return t('rt.days', { d });
-  if (d === 1) return t('rt.day', { h });
-  if (h > 0) return t('rt.hm', { h, m });
-  return t('rt.m', { m });
+export function fmtNum(n: number) {
+  try {
+    return n.toLocaleString(locale());
+  } catch {
+    return String(n);
+  }
 }
 
-export const hasRuntime = (bot: Bot, nowMs = Date.now()) => bot.runtime.unlimited || secondsLeft(bot, nowMs) > 0;
-
-/** Status in einfachen Worten */
-export function plainStatus(bot: Bot, pending: string | null) {
-  if (pending === 'start') return t('state.starting');
-  if (pending === 'stop') return t('state.stopping');
-  if (pending === 'restart') return t('state.restarting');
-  if (bot.status === 'running') return t('state.online');
-  if (bot.status === 'crashed') return t('state.problem');
-  return t('state.offline');
+export function fileSize(bytes: number) {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }

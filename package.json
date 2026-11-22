@@ -12,6 +12,8 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-mono": "^0.4.2",
+    "@expo-google-fonts/syne": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@tanstack/react-query": "^5.105.0",
     "expo": "~58.0.22",

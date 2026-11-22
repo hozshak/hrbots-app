@@ -1,26 +1,30 @@
-// Wiederverwendbare Bearbeiter für Listen (Benutzer, Rollen, Nachrichten) in den Bot-Einstellungen.
-import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+// Wiederverwendbare Listen-Bearbeiter: Namen (Helfer, VIPs …) und Nachrichten.
+// Muster überall gleich: großer „+“-Knopf → kleines Formular erscheint; Mülleimer mit Nachfrage; Antippen = bearbeiten.
+import { useCallback, useState, type ReactNode } from 'react';
+import { View } from 'react-native';
 import { cleanUsername, isUsername, INPUT_LIMITS, type BotKind } from '@/api';
 import { keys, queryClient } from '@/lib/query';
 import { errorText, t } from '@/lib/i18n';
+import { confirm, haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
-import { C, S, T } from '@/lib/theme';
-import { Button, Chip, Field, Segmented } from './ui';
+import { C, R, S, T } from '@/lib/theme';
+import { AddButton, AppSwitch, Button, Empty, Field, ListItem, Templates, Txt } from './ui';
+import { animateLayout } from './guide';
 
 /** Änderung an einem Bot ausführen: Fehler als Meldung, danach Bot-Daten neu laden. */
-export function useBotChange(kind: BotKind, id: number) {
+export function useBotChange(kind: BotKind, id: number, extraKeys: readonly (readonly unknown[])[] = []) {
   const [busy, setBusy] = useState(false);
   const run = useCallback(
-    async (fn: () => Promise<unknown>, okText?: string) => {
+    async (fn: () => Promise<unknown>, okText: string | null = t('common.saved')) => {
       setBusy(true);
       try {
         await fn();
-        await queryClient.invalidateQueries({ queryKey: keys.bot(kind, id) });
-        if (okText) toast(okText, 'success');
+        haptic.success();
+        await Promise.all([queryClient.invalidateQueries({ queryKey: keys.bot(kind, id) }), ...extraKeys.map((k) => queryClient.invalidateQueries({ queryKey: k }))]);
+        if (okText) toast(okText, 'success', 1600);
         return true;
       } catch (e) {
+        haptic.error();
         toast(errorText(e), 'error');
         return false;
       } finally {
@@ -32,130 +36,155 @@ export function useBotChange(kind: BotKind, id: number) {
   return { busy, run };
 }
 
-// Server nimmt nur Highrise-Namen [a-z0-9._-] (1–40) an; hier vorher prüfen statt 400 invalid_input.
-const cleanUser = cleanUsername;
+/** „Wirklich löschen?“ */
+export const askDelete = (name: string, text?: string) => confirm(t('common.deleteQ', { name }), text ?? t('common.deleteText'), t('common.delete'));
 
-export function UserList({ users, onAdd, onRemove, busy }: {
-  users: string[]; onAdd: (u: string) => Promise<boolean>; onRemove: (u: string) => void; busy?: boolean;
+/** Bereich, der sich mit dem großen „+“-Knopf öffnet */
+export function AddPanel({ label, open, onOpen, onClose, children, testID }: {
+  label: string; open: boolean; onOpen: () => void; onClose: () => void; children: ReactNode; testID?: string;
 }) {
-  const [name, setName] = useState('');
-  const u = cleanUser(name);
+  if (!open) return <AddButton label={label} testID={testID} onPress={() => { animateLayout(); onOpen(); }} />;
+  return (
+    <View style={{ backgroundColor: C.card, borderRadius: R.lg, borderWidth: 2, borderColor: C.accent, padding: S.lg, gap: S.md }}>
+      <Txt style={T.headline}>{label}</Txt>
+      {children}
+      <Button label={t('common.cancel')} variant="ghost" small onPress={() => { animateLayout(); onClose(); }} />
+    </View>
+  );
+}
+
+/** Highrise-Namen-Feld mit Prüfung */
+export function NameField({ value, onChange, onSubmit, label, autoFocus, testID }: {
+  value: string; onChange: (v: string) => void; onSubmit?: () => void; label?: string; autoFocus?: boolean; testID?: string;
+}) {
+  const u = cleanUsername(value);
   const bad = !!u && !isUsername(u);
-  const add = async () => {
-    if (!u || bad) return;
-    if (await onAdd(u)) setName('');
-  };
   return (
-    <View style={{ gap: S.md }}>
-      {users.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>
-          {users.map((u) => (
-            <Chip key={u} label={`@${u}`} onRemove={() => onRemove(u)} />
-          ))}
-        </View>
-      ) : (
-        <Text style={T.sub}>{t('common.none')}</Text>
-      )}
-      <View style={{ flexDirection: 'row', gap: S.sm, alignItems: 'flex-start' }}>
-        <Field
-          style={{ flex: 1 }}
-          value={name}
-          onChangeText={setName}
-          placeholder={t('common.username')}
-          autoCapitalize="none"
-          maxLength={INPUT_LIMITS.username + 1}
-          returnKeyType="done"
-          onSubmitEditing={add}
-          error={bad ? t('common.usernameInvalid') : null}
-        />
-        <Button label={t('common.add')} small variant="secondary" icon="add" onPress={add} disabled={!u || bad} loading={busy} style={{ marginTop: 4 }} />
-      </View>
-    </View>
+    <Field
+      label={label ?? t('common.username')}
+      value={value}
+      onChangeText={onChange}
+      placeholder={t('common.usernamePh')}
+      autoCapitalize="none"
+      maxLength={INPUT_LIMITS.username + 1}
+      returnKeyType="done"
+      onSubmitEditing={onSubmit}
+      autoFocus={autoFocus}
+      error={bad ? t('common.usernameBad') : null}
+      testID={testID}
+    />
   );
 }
 
-export function RoleEditor<R extends string>({ roles, labels, onAdd, onRemove, busy }: {
-  roles: Record<R, string[]>; labels: Record<R, string>; onAdd: (role: R, u: string) => Promise<boolean>; onRemove: (role: R, u: string) => void; busy?: boolean;
+/** Liste von Highrise-Namen mit „+“ und Mülleimer */
+export function NameList({ names, onAdd, onRemove, addLabel, emptyEmoji = '🙋', emptyText, busy, testID }: {
+  names: string[]; onAdd: (u: string) => Promise<boolean>; onRemove: (u: string) => Promise<unknown>; addLabel: string;
+  emptyEmoji?: string; emptyText?: string; busy?: boolean; testID?: string;
 }) {
-  const list = Object.keys(labels) as R[];
-  const [role, setRole] = useState<R>(list[0]);
-  return (
-    <View style={{ gap: S.md }}>
-      <Segmented
-        value={role}
-        onChange={setRole}
-        options={list.map((r) => ({ value: r, label: `${labels[r]} · ${roles[r]?.length ?? 0}` }))}
-      />
-      <UserList users={roles[role] ?? []} onAdd={(u) => onAdd(role, u)} onRemove={(u) => onRemove(role, u)} busy={busy} />
-    </View>
-  );
-}
-
-/** Liste von Texten mit Löschen-Knopf je Zeile (z. B. Willkommensnachrichten des Mod-Bots) */
-export function ItemRow({ title, subtitle, onDelete, right }: { title: string; subtitle?: string; onDelete?: () => void; right?: React.ReactNode }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 52, paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: C.separator }}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={T.body}>{title}</Text>
-        {subtitle ? <Text style={T.sub}>{subtitle}</Text> : null}
-      </View>
-      {right}
-      {onDelete ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={t('common.delete')} hitSlop={10} onPress={onDelete} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 6 })}>
-          <Ionicons name="trash-outline" size={20} color={C.red} />
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-export function AddMessage({ placeholder, onAdd, busy, withTarget = true }: {
-  placeholder: string; onAdd: (message: string, target?: string) => Promise<boolean>; busy?: boolean; withTarget?: boolean;
-}) {
-  const [msg, setMsg] = useState('');
-  const [target, setTarget] = useState('');
-  const targetBad = !!cleanUser(target) && !isUsername(target);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const u = cleanUsername(name);
+  const ok = !!u && isUsername(u);
   const add = async () => {
-    if (!msg.trim() || targetBad) return;
-    if (await onAdd(msg.trim(), cleanUser(target) || undefined)) {
-      setMsg('');
-      setTarget('');
+    if (!ok) return;
+    if (await onAdd(u)) {
+      setName('');
+      setOpen(false);
     }
   };
   return (
-    <View style={{ gap: S.sm, marginTop: S.md }}>
-      <Field value={msg} onChangeText={setMsg} placeholder={placeholder} multiline maxLength={INPUT_LIMITS.message} />
-      {withTarget ? (
-        <Field value={target} onChangeText={setTarget} placeholder={t('welcome.target')} autoCapitalize="none" maxLength={INPUT_LIMITS.username + 1} error={targetBad ? t('common.usernameInvalid') : null} />
-      ) : null}
-      <Button label={t('common.add')} small icon="add" variant="secondary" onPress={add} disabled={!msg.trim() || targetBad} loading={busy} style={{ alignSelf: 'flex-start' }} />
+    <View style={{ gap: S.sm }}>
+      {names.length ? (
+        names.map((n) => (
+          <ListItem
+            key={n}
+            emoji="🙂"
+            title={`@${n}`}
+            onDelete={async () => {
+              if (await askDelete(`@${n}`)) onRemove(n);
+            }}
+          />
+        ))
+      ) : (
+        <Empty emoji={emptyEmoji} title={emptyText ?? t('common.nobody')} />
+      )}
+      <AddPanel label={addLabel} open={open} onOpen={() => setOpen(true)} onClose={() => { setOpen(false); setName(''); }} testID={testID ? `${testID}-add` : 'name-add'}>
+        <NameField value={name} onChange={setName} onSubmit={add} autoFocus testID={testID ? `${testID}-input` : 'name-input'} />
+        <Button label={t('common.add')} icon="add" onPress={add} disabled={!ok} loading={busy} testID={testID ? `${testID}-save` : 'name-save'} />
+      </AddPanel>
     </View>
   );
 }
 
-/** fertige Texte zum Antippen (z. B. Willkommensnachrichten) */
-export function TemplateChips({ templates, onPick, title }: { templates: string[]; onPick: (text: string) => void; title?: string }) {
-  if (!templates.length) return null;
+export type MsgItem = { id: number; text: string; target?: string | null; active?: boolean };
+
+/** Nachrichten-Liste: an/aus, antippen = bearbeiten, Mülleimer, „+“ mit Vorlagen und „nur für eine Person“ */
+export function MessageList({ items, templates, addLabel, onAdd, onDelete, onToggle, onSave, minCount = 0, withTarget = true, maxLen = INPUT_LIMITS.message, busy }: {
+  items: MsgItem[]; templates: string[]; addLabel: string;
+  onAdd: (text: string, target?: string) => Promise<boolean>; onDelete: (m: MsgItem) => Promise<unknown>;
+  onToggle?: (m: MsgItem, active: boolean) => Promise<unknown>; onSave?: (m: MsgItem, text: string) => Promise<boolean>;
+  minCount?: number; withTarget?: boolean; maxLen?: number; busy?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [target, setTarget] = useState('');
+  const [editing, setEditing] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+  const tu = cleanUsername(target);
+  const targetBad = !!tu && !isUsername(tu);
+  const existing = new Set(items.map((m) => m.text));
+  const add = async (v = text) => {
+    const s = v.trim();
+    if (!s || targetBad) return;
+    if (await onAdd(s, tu || undefined)) {
+      setText('');
+      setTarget('');
+      setOpen(false);
+    }
+  };
   return (
-    <View style={{ gap: S.sm, marginTop: S.md }}>
-      <Text style={T.sub}>{title ?? t('wiz.templates')}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>
-        {templates.map((x) => (
-          <Pressable
-            key={x}
-            accessibilityRole="button"
-            accessibilityLabel={`${t('common.add')}: ${x}`}
-            onPress={() => onPick(x)}
-            style={({ pressed }) => ({
-              flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderRadius: 20,
-              backgroundColor: pressed ? 'rgba(110,123,255,0.30)' : C.accentSoft, borderWidth: 1, borderColor: 'rgba(110,123,255,0.35)',
-            })}
-          >
-            <Ionicons name="add" size={16} color={C.accent} />
-            <Text style={[T.sub, { color: C.text }]}>{x}</Text>
-          </Pressable>
-        ))}
-      </View>
+    <View style={{ gap: S.sm }}>
+      {items.length === 0 ? <Empty emoji="💬" title={t('say.empty')} /> : null}
+      {items.map((m) =>
+        editing === m.id && onSave ? (
+          <View key={m.id} style={{ backgroundColor: C.card, borderRadius: R.md, borderWidth: 2, borderColor: C.accent, padding: S.md, gap: S.sm }}>
+            <Field value={editText} onChangeText={setEditText} multiline maxLength={maxLen} autoFocus testID={`msg-edit-${m.id}`} />
+            <View style={{ flexDirection: 'row', gap: S.sm }}>
+              <Button
+                label={t('common.save')}
+                small
+                style={{ flex: 1 }}
+                disabled={!editText.trim() || editText.trim() === m.text}
+                loading={busy}
+                onPress={async () => { if (await onSave(m, editText.trim())) setEditing(null); }}
+              />
+              <Button label={t('common.cancel')} small variant="secondary" style={{ flex: 1 }} onPress={() => setEditing(null)} />
+            </View>
+          </View>
+        ) : (
+          <ListItem
+            key={m.id}
+            emoji={m.active === false ? '💤' : '💬'}
+            title={m.text}
+            muted={m.active === false}
+            sub={m.target ? t('say.onlyFor', { user: m.target }) : m.active === false ? t('say.paused') : null}
+            onPress={onSave ? () => { setEditText(m.text); setEditing(m.id); } : undefined}
+            right={onToggle ? <AppSwitch value={m.active !== false} onChange={(v) => onToggle(m, v)} label={m.text} /> : null}
+            onDelete={async () => {
+              if (items.length <= minCount) return toast(t('say.keepMin', { n: minCount }), 'info');
+              if (await askDelete(m.text.length > 40 ? m.text.slice(0, 40) + '…' : m.text)) onDelete(m);
+            }}
+          />
+        ),
+      )}
+      <AddPanel label={addLabel} open={open} onOpen={() => setOpen(true)} onClose={() => setOpen(false)} testID="msg-add">
+        <Field value={text} onChangeText={setText} placeholder={t('say.placeholder')} multiline maxLength={maxLen} autoFocus testID="msg-input" />
+        <Templates items={templates.filter((x) => !existing.has(x))} onPick={(x) => setText(x)} />
+        {withTarget ? (
+          <NameField value={target} onChange={setTarget} label={t('say.onlyForLabel')} testID="msg-target" />
+        ) : null}
+        <Button label={t('common.add')} icon="add" onPress={() => add()} disabled={!text.trim() || targetBad} loading={busy} testID="msg-save" />
+      </AddPanel>
     </View>
   );
 }

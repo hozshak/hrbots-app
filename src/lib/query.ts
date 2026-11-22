@@ -23,6 +23,12 @@ export const keys = {
   bot: (kind: BotKind, id: number) => ['bot', kind, id] as const,
   logs: (kind: BotKind, id: number) => ['logs', kind, id] as const,
   presence: (kind: BotKind, id: number) => ['presence', kind, id] as const,
+  extra: (what: string, kind: BotKind, id: number) => ['extra', what, kind, id] as const,
+  wallet: ['wallet'] as const,
+  link: ['link'] as const,
+  radios: ['radios'] as const,
+  tickets: ['tickets'] as const,
+  ticket: (id: number) => ['ticket', id] as const,
 };
 
 export const useBots = () => useQuery({ queryKey: keys.bots, queryFn: bots.list });

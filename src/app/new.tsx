@@ -1,31 +1,30 @@
-// Geführter Assistent für einen neuen Bot: eine Frage pro Seite, großer Fortschrittsbalken, auf jeder Seite
-// „Wozu brauche ich das?“ und „Zeig mir, wie“. Am Ende Übersicht + „Anlegen & starten“.
+// Neuer Bot – Assistent: EINE Frage pro Seite, großes Bild (Emoji), wenige Worte, auf jeder Seite Hilfe
+// („Zeig mir, wie“ mit nummerierten Emoji-Schritten, „Einfügen“-Knöpfe). Am Ende Übersicht + „Bot machen“.
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, type Bot, type BotKind } from '@/api';
+import { bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, INPUT_LIMITS, type Bot, type BotKind } from '@/api';
 import { keys, powerBot, queryClient } from '@/lib/query';
 import { hasRuntime } from '@/lib/format';
-import { content, CREATE_HIGHRISE, type GuideKey } from '@/lib/content';
+import { content, CREATE_HIGHRISE } from '@/lib/content';
 import { errorText, t, type Key } from '@/lib/i18n';
 import { haptic, openUrl } from '@/lib/ui';
 import { toast } from '@/lib/toast';
-import { C, KIND_COLOR, R, S, T } from '@/lib/theme';
-import { Backdrop, Button, Field, Glass, IconButton, KindIcon } from '@/components/ui';
-import { Expandable, GuideSteps, HelpBits } from '@/components/guide';
-import { TemplateChips } from '@/components/editors';
+import { C, glow, KIND_COLOR, KIND_EMOJI, R, S, T } from '@/lib/theme';
+import { arrowFwd, Button, Card, Face, Field, fwdIcon, goBack, ListItem, Note, PasteButton, Screen, Templates, Txt } from '@/components/ui';
+import { Expandable, GuideSteps } from '@/components/guide';
+import { NameField } from '@/components/editors';
 
-type Step = 'kind' | 'name' | 'room' | 'token' | 'designer' | 'messages' | 'owner' | 'summary';
+type Step = 'kind' | 'name' | 'room' | 'key' | 'designer' | 'messages' | 'owner' | 'summary';
+const STEP_EMOJI: Record<Step, string> = { kind: '🤖', name: '🏷️', room: '🏠', key: '🔑', designer: '🚪', messages: '💬', owner: '👑', summary: '✅' };
 
 function stepsFor(kind: BotKind | null): Step[] {
-  const base: Step[] = ['kind', 'name', 'room', 'token', 'designer'];
+  const base: Step[] = ['kind', 'name', 'room', 'key', 'designer'];
   if (kind === 'welcome') return [...base, 'messages', 'summary'];
-  if (kind === 'mod') return [...base, 'owner', 'summary'];
-  return [...base, 'summary'];
+  return [...base, 'owner', 'summary'];
 }
 
 async function readClipboard() {
@@ -36,33 +35,18 @@ async function readClipboard() {
   }
 }
 
-function PasteButton({ onPaste, testID }: { onPaste: () => void; testID?: string }) {
+function Question({ step, title, sub }: { step: Step; title: string; sub?: string }) {
   return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={t('wiz.paste')}
-      onPress={onPaste}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, minHeight: 48, opacity: pressed ? 0.5 : 1 })}
-    >
-      <Ionicons name="clipboard-outline" size={18} color={C.accent} />
-      <Text style={[T.sub, { color: C.accent, fontWeight: '700' }]}>{t('wiz.paste')}</Text>
-    </Pressable>
-  );
-}
-
-function Question({ title, sub }: { title: string; sub?: string }) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Text style={[T.title, { fontSize: 26, lineHeight: 32 }]} accessibilityRole="header">{title}</Text>
-      {sub ? <Text style={[T.callout, { fontSize: 16, lineHeight: 22 }]}>{sub}</Text> : null}
+    <View style={{ alignItems: 'center', gap: S.sm, paddingTop: S.sm }}>
+      <Txt style={{ fontSize: 60 }} maxFontSizeMultiplier={1.1}>{STEP_EMOJI[step]}</Txt>
+      <Txt style={[T.title, { textAlign: 'center' }]} accessibilityRole="header">{title}</Txt>
+      {sub ? <Txt style={[T.callout, { textAlign: 'center' }]}>{sub}</Txt> : null}
     </View>
   );
 }
 
 export default function NewBot() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [kind, setKind] = useState<BotKind | null>(null);
   const [name, setName] = useState('');
   const [room, setRoom] = useState('');
@@ -83,9 +67,9 @@ export default function NewBot() {
   const tokenOk = isBotToken(token);
   const msgs = messages.map((m) => m.trim()).filter(Boolean);
 
-  // Raum-Schritt: Liegt etwas in der Zwischenablage? (ohne den Inhalt zu lesen – iOS fragt sonst nach Erlaubnis)
+  // Liegt etwas in der Zwischenablage? (ohne den Inhalt zu lesen – iOS fragt sonst nach Erlaubnis)
   useEffect(() => {
-    if (step !== 'room' || Platform.OS === 'web') return;
+    if ((step !== 'room' && step !== 'key') || Platform.OS === 'web') return;
     Clipboard.hasStringAsync().then(setClipHasText).catch(() => setClipHasText(false));
   }, [step]);
 
@@ -93,12 +77,12 @@ export default function NewBot() {
     step === 'kind' ? !!kind
       : step === 'name' ? name.trim().length > 0
         : step === 'room' ? roomCheck.ok
-          : step === 'token' ? tokenOk
+          : step === 'key' ? tokenOk
             : step === 'messages' ? msgs.length >= 2
               : step === 'owner' ? !owner.trim() || isUsername(owner)
                 : true;
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const close = () => goBack('/');
   const go = (s: Step) => {
     setErr(null);
     setStep(s);
@@ -110,18 +94,11 @@ export default function NewBot() {
   };
   const back = () => (idx > 0 ? go(steps[idx - 1]) : close());
 
-  const pasteRoom = async () => {
+  const paste = async (set: (v: string) => void, check: (v: string) => boolean) => {
     const v = await readClipboard();
     if (!v) return toast(t('wiz.clipEmpty'), 'info');
-    setRoom(v);
-    if (parseRoom(v).ok) haptic.success();
-    else haptic.error();
-  };
-  const pasteToken = async () => {
-    const v = await readClipboard();
-    if (!v) return toast(t('wiz.clipEmpty'), 'info');
-    setToken(v);
-    if (isBotToken(v)) haptic.success();
+    set(v);
+    if (check(v)) haptic.success();
     else haptic.error();
   };
 
@@ -136,13 +113,13 @@ export default function NewBot() {
         room: room.trim(),
         bot_token: token.trim(),
         ...(kind === 'welcome' ? { welcome_messages: msgs } : {}),
-        ...(kind === 'mod' && owner.trim() ? { owner_username: cleanUsername(owner) } : {}),
+        ...(kind !== 'welcome' && owner.trim() ? { owner_username: cleanUsername(owner) } : {}),
       });
       setToken('');
       haptic.success();
       queryClient.setQueryData<Bot[]>(keys.bots, (l) => (l ? [...l, bot] : l));
       queryClient.invalidateQueries({ queryKey: keys.me });
-      // nur starten, wenn Laufzeit da ist – sonst neutraler Hinweis
+      // nur starten, wenn Zeit da ist – sonst neutraler Hinweis
       const canStart = hasRuntime(bot);
       if (canStart) powerBot(bot, 'start');
       setDone({ bot, started: canStart });
@@ -154,296 +131,225 @@ export default function NewBot() {
     }
   };
 
-  const openBot = () => {
-    if (!done) return;
-    router.replace({ pathname: '/bot/[kind]/[id]', params: { kind: done.bot.kind, id: String(done.bot.id) } });
-  };
-
-  const addMessage = (text: string) => {
-    const v = text.trim();
-    if (!v || messages.includes(v)) return;
-    haptic.select();
-    setMessages((l) => [...l, v]);
-  };
-
   // ---------- fertig ----------
   if (done) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg, padding: S.xl, paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xl }}>
-        <Backdrop />
-        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1, justifyContent: 'center', gap: S.xl, maxWidth: 480, width: '100%', alignSelf: 'center' }}>
+      <Screen testID="wiz-done">
+        <Animated.View entering={FadeIn.duration(300)} style={{ gap: S.xl, paddingTop: S.xxl }}>
           <View style={{ alignItems: 'center', gap: S.lg }}>
-            <View style={{ width: 96, height: 96, borderRadius: 32, backgroundColor: 'rgba(52,211,153,0.16)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="checkmark-circle" size={56} color={C.green} />
-            </View>
-            <Text style={[T.title, { fontSize: 26, textAlign: 'center' }]}>{t('wiz.doneTitle')}</Text>
-            <Text style={[T.body, { color: C.text2, textAlign: 'center', lineHeight: 23 }]}>
-              {done.started ? t('wiz.doneStarted') : t('wiz.doneNoRuntime')}
-            </Text>
+            <Txt style={{ fontSize: 80 }} maxFontSizeMultiplier={1.1}>🎉</Txt>
+            <Txt style={[T.hero, { textAlign: 'center' }]}>{t('wiz.doneTitle')}</Txt>
+            <Txt style={[T.body, { color: C.text2, textAlign: 'center' }]}>{done.started ? t('wiz.doneStarted') : t('wiz.doneNoTime')}</Txt>
           </View>
           {designer === false ? (
-            <Glass>
-              <Text style={[T.headline, { marginBottom: S.md }]}>{content.guides.designer.title}</Text>
+            <Card style={{ gap: S.md }}>
+              <Txt style={T.headline}>🚪 {content.guides.designer.title}</Txt>
               <GuideSteps guide="designer" />
-            </Glass>
+            </Card>
           ) : null}
-          <Button testID="wiz-open-bot" label={t('wiz.openBot')} icon="arrow-forward" onPress={openBot} />
+          <Button testID="wiz-open-bot" label={t('wiz.openBot')} icon={arrowFwd()} onPress={() => router.replace({ pathname: '/bot/[kind]/[id]', params: { kind: done.bot.kind, id: String(done.bot.id) } })} />
+          <Button label={t('wiz.toHome')} variant="secondary" onPress={() => router.dismissTo('/')} />
         </Animated.View>
-      </View>
+      </Screen>
     );
   }
 
-  const why = (k: string) => content.why[k];
   const roomError = !roomCheck.ok && room.trim().length > 0 ? t(`room.${roomCheck.reason}` as Key) : null;
-
-  const summaryRows: { label: string; value: string; step: Step; ok?: boolean }[] = kind
+  const summaryRows: { emoji: string; label: string; value: string; step: Step; warn?: boolean }[] = kind
     ? [
-        { label: t('wiz.sumKind'), value: t(`kind.${kind}`), step: 'kind' },
-        { label: t('wiz.sumName'), value: name.trim(), step: 'name' },
-        { label: t('wiz.sumRoom'), value: roomCheck.ok ? `✓ ${t('wiz.roomOk')}` : room, step: 'room' },
-        { label: t('wiz.sumKey'), value: `✓ ${t('wiz.sumKeySet')}`, step: 'token' },
-        { label: t('wiz.sumDesigner'), value: designer ? `✓ ${t('wiz.sumDesignerYes')}` : t('wiz.sumDesignerNo'), step: 'designer', ok: !!designer },
-        ...(kind === 'welcome' ? [{ label: t('wiz.sumMessages'), value: String(msgs.length), step: 'messages' as Step }] : []),
-        ...(kind === 'mod' ? [{ label: t('wiz.sumOwner'), value: owner.trim() ? `@${owner.trim().replace(/^@/, '')}` : '–', step: 'owner' as Step }] : []),
+        { emoji: KIND_EMOJI[kind], label: t('wiz.sumKind'), value: t(`kind.${kind}`), step: 'kind' },
+        { emoji: '🏷️', label: t('wiz.sumName'), value: name.trim(), step: 'name' },
+        { emoji: '🏠', label: t('wiz.sumRoom'), value: roomCheck.ok ? `✅ ${t('wiz.roomOk')}` : room, step: 'room' },
+        { emoji: '🔑', label: t('wiz.sumKey'), value: `✅ ${t('wiz.sumKeySet')}`, step: 'key' },
+        { emoji: '🚪', label: t('wiz.sumDesigner'), value: designer ? `✅ ${t('wiz.sumDesignerYes')}` : `⚠️ ${t('wiz.sumDesignerNo')}`, step: 'designer', warn: !designer },
+        ...(kind === 'welcome' ? [{ emoji: '💬', label: t('wiz.sumMessages'), value: String(msgs.length), step: 'messages' as Step }] : []),
+        ...(kind !== 'welcome' ? [{ emoji: '👑', label: t('wiz.sumOwner'), value: owner.trim() ? `@${cleanUsername(owner)}` : '–', step: 'owner' as Step }] : []),
       ]
     : [];
 
+  const footer =
+    step === 'kind' ? null : step === 'designer' ? (
+      <>
+        <Button testID="designer-done" label={t('wiz.designerDone')} emoji="✅" onPress={() => { setDesigner(true); next(); }} />
+        <Button testID="designer-later" label={t('wiz.designerLater')} variant="secondary" small onPress={() => { setDesigner(false); next(); }} />
+      </>
+    ) : step === 'summary' ? (
+      <Button testID="wiz-create" label={t('wiz.create')} emoji="🚀" onPress={create} loading={busy} />
+    ) : (
+      <>
+        <Button testID="new-next" label={t('common.next')} icon={arrowFwd()} onPress={next} disabled={!valid} />
+        {step === 'owner' ? <Button label={t('wiz.skip')} variant="secondary" small onPress={() => { setOwner(''); go('summary'); }} /> : null}
+      </>
+    );
+
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Backdrop />
-      {/* Kopf: Zurück/Schließen, Fortschritt */}
-      <View style={{ paddingTop: Platform.OS === 'ios' ? S.lg : insets.top + S.md, paddingHorizontal: S.lg, gap: S.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <IconButton testID="wiz-back" icon={idx > 0 ? 'chevron-back' : 'close'} label={idx > 0 ? t('common.back') : t('common.close')} size={44} onPress={back} />
-          <Text style={[T.headline, { color: C.text2 }]}>{t('new.step', { n: idx + 1, total: steps.length })}</Text>
-          {idx > 0 ? <IconButton icon="close" label={t('common.close')} size={44} onPress={close} /> : <View style={{ width: 44 }} />}
-        </View>
-        <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }} accessibilityRole="progressbar">
-          <View style={{ width: `${((idx + 1) / steps.length) * 100}%`, height: '100%', borderRadius: 4, backgroundColor: C.accent }} />
-        </View>
+    <Screen
+      keyboard
+      back={back}
+      close={idx > 0 ? close : undefined}
+      title={t('wiz.title')}
+      sub={t('wiz.step', { n: idx + 1, total: steps.length })}
+      footer={footer}
+      testID="wizard"
+      scrollKey={step}
+    >
+      {/* Fortschritt als Punkte */}
+      <View style={{ flexDirection: 'row', gap: 6 }} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: steps.length, now: idx + 1 }}>
+        {steps.map((s, i) => (
+          <View key={s} style={[{ flex: 1, height: 8, borderRadius: 4, backgroundColor: i <= idx ? C.accent : C.borderSoft }, i === idx ? glow(C.accent, 0.5) : null]} />
+        ))}
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: S.lg, paddingTop: S.xl, gap: S.lg }} keyboardShouldPersistTaps="handled">
-          <Animated.View key={step} entering={Platform.OS === 'web' ? FadeIn.duration(180) : SlideInRight.duration(220)} style={{ gap: S.lg }}>
-            {step === 'kind' ? (
-              <>
-                <Question title={t('wiz.kindQ')} sub={t('wiz.kindSub')} />
-                {BOT_KINDS.map((k) => {
-                  const on = kind === k;
-                  return (
-                    <Pressable
-                      key={k}
-                      testID={`kind-${k}`}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                      accessibilityLabel={`${t(`kind.${k}`)}. ${t(`kind.${k}.short`)}`}
-                      onPress={() => {
-                        haptic.select();
-                        setKind(k);
-                        // gleich weiter – eine Frage pro Seite
-                        setTimeout(() => go('name'), 220);
-                      }}
-                    >
-                      <Glass style={on ? { borderColor: KIND_COLOR[k], borderWidth: 1.5 } : undefined}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.lg, minHeight: 64 }}>
-                          <KindIcon kind={k} size={60} />
-                          <View style={{ flex: 1, gap: 4 }}>
-                            <Text style={[T.headline, { fontSize: 19 }]}>{t(`kind.${k}`)}</Text>
-                            <Text style={[T.callout, { fontSize: 16 }]}>{t(`kind.${k}.short`)}</Text>
-                          </View>
-                          <Ionicons name={on ? 'checkmark-circle' : 'chevron-forward'} size={26} color={on ? KIND_COLOR[k] : C.text3} />
-                        </View>
-                      </Glass>
-                    </Pressable>
-                  );
-                })}
-                <HelpBits why={why('kind')} />
-              </>
+      <Animated.View key={step} entering={FadeIn.duration(200)} style={{ gap: S.lg }}>
+        {step === 'kind' ? (
+          <>
+            <Question step="kind" title={t('wiz.kindQ')} />
+            {BOT_KINDS.map((k) => {
+              const on = kind === k;
+              return (
+                <Pressable
+                  key={k}
+                  testID={`kind-${k}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${t(`kind.${k}`)}. ${t(`kind.${k}.d`)}`}
+                  onPress={() => {
+                    haptic.select();
+                    setKind(k);
+                    setTimeout(() => go('name'), 200);
+                  }}
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: 'row', alignItems: 'center', gap: S.lg, minHeight: 104, padding: S.lg, borderRadius: R.xl,
+                      backgroundColor: pressed || on ? C.elevated : C.card, borderWidth: on ? 2 : 1, borderColor: on ? KIND_COLOR[k] : C.cardBorder,
+                    },
+                    on ? glow(KIND_COLOR[k], 0.35) : null,
+                  ]}
+                >
+                  <Face emoji={KIND_EMOJI[k]} color={KIND_COLOR[k]} size={72} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Txt style={[T.big, { fontSize: 22 }]}>{t(`kind.${k}`)}</Txt>
+                    <Txt style={[T.callout, { fontSize: 16 }]}>{t(`kind.${k}.d`)}</Txt>
+                  </View>
+                  <Ionicons name={on ? 'checkmark-circle' : fwdIcon()} size={30} color={on ? KIND_COLOR[k] : C.text3} />
+                </Pressable>
+              );
+            })}
+            <Note emoji="💡" text={content.why.kind} />
+          </>
+        ) : null}
+
+        {step === 'name' ? (
+          <>
+            <Question step="name" title={t('wiz.nameQ')} sub={t('wiz.nameSub')} />
+            <Field value={name} onChangeText={setName} placeholder={t('wiz.namePh')} maxLength={INPUT_LIMITS.name} autoFocus big returnKeyType="next" onSubmitEditing={next} testID="new-name" accessibilityLabel={t('wiz.nameQ')} />
+            {kind ? <Templates items={content.botNames[kind]} onPick={setName} /> : null}
+          </>
+        ) : null}
+
+        {step === 'room' ? (
+          <>
+            <Question step="room" title={t('wiz.roomQ')} sub={t('wiz.roomSub')} />
+            <Button testID="paste-room-big" label={clipHasText && !room ? t('wiz.pasteNow') : t('common.paste')} emoji="📋" variant={room ? 'secondary' : 'primary'} onPress={() => paste(setRoom, (v) => parseRoom(v).ok)} />
+            <Field
+              label={t('wiz.roomLabel')}
+              value={room}
+              onChangeText={setRoom}
+              placeholder="https://high.rs/room?id=…"
+              autoCapitalize="none"
+              keyboardType="url"
+              returnKeyType="next"
+              onSubmitEditing={next}
+              error={roomError}
+              ok={roomCheck.ok ? t('wiz.roomOk') : null}
+              testID="new-room"
+            />
+            <Expandable title={t('common.showMe')} emoji="👀" open={!room} testID="howto-room"><GuideSteps guide="roomLink" /></Expandable>
+          </>
+        ) : null}
+
+        {step === 'key' ? (
+          <>
+            <Question step="key" title={t('wiz.keyQ')} sub={t('wiz.keySub')} />
+            <Card style={{ gap: S.md }}>
+              <Txt style={T.headline}>👀 {content.guides.token.title}</Txt>
+              <GuideSteps guide="token" />
+              <Button label={t('wiz.openSite')} emoji="🌐" variant="secondary" onPress={() => openUrl(CREATE_HIGHRISE)} testID="open-create" />
+            </Card>
+            <Button testID="paste-key-big" label={t('common.paste')} emoji="📋" variant={token ? 'secondary' : 'primary'} onPress={() => paste(setToken, isBotToken)} />
+            <Field
+              label={t('wiz.keyLabel')}
+              value={token}
+              onChangeText={setToken}
+              placeholder={t('wiz.keyPh')}
+              secureTextEntry
+              autoCapitalize="none"
+              textContentType="none"
+              autoComplete="off"
+              error={token.length > 0 && !tokenOk ? t('wiz.keyBad') : null}
+              ok={tokenOk ? t('wiz.keyOk') : null}
+              hint={t('wiz.keyPrivate')}
+              returnKeyType="next"
+              onSubmitEditing={next}
+              testID="new-token"
+              right={<PasteButton onPaste={() => paste(setToken, isBotToken)} testID="paste-token" />}
+            />
+          </>
+        ) : null}
+
+        {step === 'designer' ? (
+          <>
+            <Question step="designer" title={t('wiz.designerQ')} sub={t('wiz.designerSub')} />
+            <Card style={{ gap: S.md }}>
+              <GuideSteps guide="designer" />
+            </Card>
+          </>
+        ) : null}
+
+        {step === 'messages' ? (
+          <>
+            <Question step="messages" title={t('wiz.messagesQ')} sub={t('wiz.messagesSub')} />
+            <Txt style={[T.headline, { textAlign: 'center', color: msgs.length >= 2 ? C.green : C.yellow }]}>{t('wiz.messagesCount', { n: msgs.length })}</Txt>
+            {messages.map((m, i) => (
+              <ListItem key={`${i}-${m}`} emoji="💬" title={m} onDelete={() => setMessages((l) => l.filter((_, j) => j !== i))} testID={`new-msg-${i}`} />
+            ))}
+            <Templates items={content.greetings.filter((x) => !messages.includes(x))} onPick={(x) => { haptic.select(); setMessages((l) => [...l, x]); }} />
+            <Field value={draft} onChangeText={setDraft} placeholder={t('say.placeholder')} maxLength={INPUT_LIMITS.message} testID="new-msg-draft"
+              onSubmitEditing={() => { if (draft.trim()) { setMessages((l) => [...l, draft.trim()]); setDraft(''); } }} />
+            <Button label={t('say.addOwn')} small variant="secondary" icon="add" disabled={!draft.trim()} testID="new-msg-add"
+              onPress={() => { setMessages((l) => [...l, draft.trim()]); setDraft(''); }} />
+            <Expandable title={t('common.showMe')} emoji="👀"><GuideSteps guide="messages" /></Expandable>
+          </>
+        ) : null}
+
+        {step === 'owner' ? (
+          <>
+            <Question step="owner" title={t('wiz.ownerQ')} sub={t('wiz.ownerSub')} />
+            <NameField value={owner} onChange={setOwner} onSubmit={next} autoFocus testID="new-owner" />
+            <Note emoji="💡" text={content.why.owner} />
+          </>
+        ) : null}
+
+        {step === 'summary' ? (
+          <>
+            <Question step="summary" title={t('wiz.summaryQ')} sub={t('wiz.summarySub')} />
+            {summaryRows.map((r) => (
+              <ListItem
+                key={r.label}
+                emoji={r.emoji}
+                title={r.value}
+                sub={r.label}
+                right={<Button label={t('wiz.change')} small variant="secondary" onPress={() => go(r.step)} />}
+              />
+            ))}
+            {designer === false ? (
+              <Expandable title={content.guides.designer.title} emoji="🚪"><GuideSteps guide="designer" /></Expandable>
             ) : null}
+          </>
+        ) : null}
+      </Animated.View>
 
-            {step === 'name' ? (
-              <>
-                <Question title={t('wiz.nameQ')} sub={t('wiz.nameSub')} />
-                <Field
-                  value={name}
-                  onChangeText={setName}
-                  placeholder={t('new.namePlaceholder')}
-                  maxLength={40}
-                  autoFocus
-                  returnKeyType="next"
-                  onSubmitEditing={next}
-                  testID="new-name"
-                  accessibilityLabel={t('new.nameLabel')}
-                />
-                <HelpBits why={why('name')} guide="name" />
-              </>
-            ) : null}
-
-            {step === 'room' ? (
-              <>
-                <Question title={t('wiz.roomQ')} sub={t('wiz.roomSub')} />
-                {clipHasText && !room ? (
-                  <Pressable onPress={pasteRoom} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, padding: S.md, borderRadius: R.md, backgroundColor: C.accentSoft }}>
-                    <Ionicons name="clipboard" size={20} color={C.accent} />
-                    <Text style={[T.callout, { color: C.text, flex: 1 }]}>{t('wiz.clipFound')}</Text>
-                  </Pressable>
-                ) : null}
-                <Field
-                  label={t('wiz.roomLabel')}
-                  value={room}
-                  onChangeText={setRoom}
-                  placeholder={t('new.roomPlaceholder')}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                  returnKeyType="next"
-                  onSubmitEditing={next}
-                  error={roomError}
-                  ok={roomCheck.ok ? t('wiz.roomOk') : null}
-                  testID="new-room"
-                  right={<PasteButton onPaste={pasteRoom} testID="paste-room" />}
-                />
-                <HelpBits why={why('room')} guide="roomLink" />
-              </>
-            ) : null}
-
-            {step === 'token' ? (
-              <>
-                <Question title={t('wiz.tokenQ')} sub={t('wiz.tokenSub')} />
-                <Glass>
-                  <Text style={[T.headline, { marginBottom: S.md }]}>{content.guides.token.title}</Text>
-                  <GuideSteps guide="token" />
-                  <Button label={t('wiz.openSite')} icon="open-outline" variant="secondary" onPress={() => openUrl(CREATE_HIGHRISE)} style={{ marginTop: S.lg }} testID="open-create" />
-                </Glass>
-                <Field
-                  label={t('wiz.tokenLabel')}
-                  value={token}
-                  onChangeText={setToken}
-                  placeholder={t('new.tokenPlaceholder')}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  textContentType="none"
-                  autoComplete="off"
-                  error={token.length > 0 && !tokenOk ? t('new.tokenInvalid') : null}
-                  ok={tokenOk ? t('wiz.tokenOk') : null}
-                  hint={t('new.tokenPrivate')}
-                  returnKeyType="next"
-                  onSubmitEditing={next}
-                  testID="new-token"
-                  right={<PasteButton onPaste={pasteToken} testID="paste-token" />}
-                />
-                <HelpBits why={why('token')} />
-              </>
-            ) : null}
-
-            {step === 'designer' ? (
-              <>
-                <Question title={t('wiz.designerQ')} sub={t('wiz.designerSub')} />
-                <Glass>
-                  <Text style={[T.headline, { marginBottom: S.md }]}>{content.guides.designer.title}</Text>
-                  <GuideSteps guide="designer" />
-                </Glass>
-                <HelpBits why={why('designer')} />
-              </>
-            ) : null}
-
-            {step === 'messages' ? (
-              <>
-                <Question title={t('wiz.messagesQ')} sub={t('wiz.messagesSub')} />
-                {messages.map((m, i) => (
-                  <Field
-                    key={i}
-                    value={m}
-                    onChangeText={(v) => setMessages((list) => list.map((x, j) => (j === i ? v : x)))}
-                    multiline
-                    maxLength={200}
-                    testID={`new-msg-${i}`}
-                    right={
-                      <Pressable accessibilityRole="button" accessibilityLabel={t('common.remove')} hitSlop={8} style={{ padding: 12 }} onPress={() => setMessages((l) => l.filter((_, j) => j !== i))}>
-                        <Ionicons name="close-circle" size={22} color={C.text3} />
-                      </Pressable>
-                    }
-                  />
-                ))}
-                <Text style={[T.sub, { color: msgs.length >= 2 ? C.green : C.yellow }]}>{t('wiz.messagesCount', { n: msgs.length })}</Text>
-                <TemplateChips templates={content.templates.filter((x) => !messages.includes(x))} onPick={addMessage} />
-                <View style={{ flexDirection: 'row', gap: S.sm, alignItems: 'flex-start' }}>
-                  <Field style={{ flex: 1 }} value={draft} onChangeText={setDraft} placeholder={t('new.messagePlaceholder')} testID="new-msg-draft" onSubmitEditing={() => { addMessage(draft); setDraft(''); }} />
-                  <Button label={t('common.add')} small icon="add" variant="secondary" disabled={!draft.trim()} onPress={() => { addMessage(draft); setDraft(''); }} style={{ marginTop: 4 }} testID="new-msg-add" />
-                </View>
-                <HelpBits why={why('messages')} guide="messages" />
-              </>
-            ) : null}
-
-            {step === 'owner' ? (
-              <>
-                <Question title={t('wiz.ownerQ')} sub={t('wiz.ownerSub')} />
-                <Field
-                  label={t('wiz.ownerLabel')}
-                  value={owner}
-                  onChangeText={setOwner}
-                  placeholder="username"
-                  autoCapitalize="none"
-                  maxLength={41}
-                  error={owner.trim() && !isUsername(owner) ? t('common.usernameInvalid') : null}
-                  autoFocus
-                  returnKeyType="next"
-                  onSubmitEditing={next}
-                  testID="new-owner"
-                />
-                <HelpBits why={why('owner')} guide="owner" />
-              </>
-            ) : null}
-
-            {step === 'summary' ? (
-              <>
-                <Question title={t('wiz.summaryQ')} sub={t('wiz.summarySub')} />
-                <Glass padded={false}>
-                  {summaryRows.map((r, i) => (
-                    <View key={r.label} style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, paddingHorizontal: S.lg, minHeight: 56, borderBottomWidth: i < summaryRows.length - 1 ? 0.5 : 0, borderBottomColor: C.separator }}>
-                      <View style={{ flex: 1, paddingVertical: 8 }}>
-                        <Text style={T.sub}>{r.label}</Text>
-                        <Text style={[T.body, r.ok === false ? { color: C.yellow } : null]} numberOfLines={2}>{r.value}</Text>
-                      </View>
-                      <Pressable accessibilityRole="button" onPress={() => go(r.step)} hitSlop={8} style={{ padding: 8 }}>
-                        <Text style={[T.sub, { color: C.accent, fontWeight: '600' }]}>{t('wiz.change')}</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </Glass>
-                {designer === false ? (
-                  <Expandable title={t('fix.howDesigner')} icon="list-outline">
-                    <GuideSteps guide="designer" />
-                  </Expandable>
-                ) : null}
-              </>
-            ) : null}
-          </Animated.View>
-
-          {err ? (
-            <View style={{ backgroundColor: C.redSoft, borderRadius: R.md, padding: S.md }}>
-              <Text style={[T.callout, { color: C.text }]}>{err}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {/* untere Knöpfe */}
-        <View style={{ padding: S.lg, paddingBottom: insets.bottom + S.lg, gap: S.sm }}>
-          {step === 'designer' ? (
-            <>
-              <Button testID="designer-done" label={t('wiz.designerDone')} icon="checkmark" onPress={() => { setDesigner(true); next(); }} />
-              <Button testID="designer-later" label={t('wiz.designerLater')} variant="ghost" onPress={() => { setDesigner(false); next(); }} />
-            </>
-          ) : step === 'summary' ? (
-            <Button testID="wiz-create" label={t('wiz.createStart')} icon="rocket-outline" onPress={create} loading={busy} />
-          ) : step === 'kind' ? null : (
-            <>
-              <Button testID="new-next" label={t('common.next')} icon="arrow-forward" onPress={next} disabled={!valid} />
-              {step === 'owner' ? <Button label={t('wiz.skip')} variant="ghost" onPress={() => { setOwner(''); next(); }} /> : null}
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+      {err ? <Note emoji="😕" tone="warn" text={err} /> : null}
+    </Screen>
   );
 }

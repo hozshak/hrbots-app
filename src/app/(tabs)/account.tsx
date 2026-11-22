@@ -1,91 +1,136 @@
-// Konto: Benutzername, Discord-Status, Bots je Art, Abmelden, Konto löschen, Rechtliches, App-Version.
+// Konto: Name, Discord, Gold (nur ansehen) + Highrise-Verknüpfung, Sprache, Passwort, Radios, Nachrichten ans Team,
+// Rechtliches, Abmelden, Konto löschen, Version.
+// App-Store-Regel 3.1.3(f): KEIN Kaufen/Mieten/Verlängern, keine Preise, kein Hinweis, wo man etwas kaufen kann.
 import { useEffect } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
-import { account, BOT_KINDS, MOCK, SITE } from '@/api';
-import { SUPPORT_DISCORD } from '@/lib/content';
+import { account, BOT_KINDS, MOCK, SITE, type Wallet, type WalletTx } from '@/api';
 import { keys } from '@/lib/query';
 import { signOut, useSession } from '@/lib/session';
-import { t } from '@/lib/i18n';
+import { getLangSetting, LANG_NAMES, t, type Key } from '@/lib/i18n';
+import { fmtNum, relTime } from '@/lib/format';
 import { confirm, openUrl } from '@/lib/ui';
-import { C, S, T } from '@/lib/theme';
-import { Backdrop, Row, ScreenTitle, Section } from '@/components/ui';
+import { C, FONT, glow, KIND_EMOJI, R, S, T } from '@/lib/theme';
+import { Card, ErrorState, MenuRow, Screen, SectionTitle, Txt } from '@/components/ui';
+import { Expandable } from '@/components/guide';
 
-export default function Account() {
+function txWords(tx: WalletTx) {
+  const k = `wallet.tx.${tx.reason}` as Key;
+  const s = t(k);
+  if (s !== k) return s;
+  return tx.amount >= 0 ? t('wallet.tx.plus') : t('wallet.tx.minus');
+}
+
+function GoldCard({ w }: { w: Wallet }) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const goldFont = Platform.OS === 'web' ? `${FONT.displayHeavy}, system-ui` : FONT.displayHeavy;
+  return (
+    <View style={[{ backgroundColor: C.card, borderRadius: R.xl, borderWidth: 1, borderColor: 'rgba(255,204,68,0.45)', padding: S.lg, gap: S.md }, glow(C.gold, 0.18)]} testID="gold-card">
+      <Txt style={[T.sub, { color: C.text2 }]}>{t('wallet.title')}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+        <Txt style={{ fontSize: 34 }} maxFontSizeMultiplier={1.2}>🪙</Txt>
+        <Txt style={{ fontFamily: goldFont, fontSize: 38, color: C.gold }} maxFontSizeMultiplier={1.3} testID="gold-balance">{fmtNum(w.gold_balance)}</Txt>
+        <Txt style={[T.headline, { color: C.gold }]}>{t('wallet.gold')}</Txt>
+      </View>
+      {w.highrise_linked ? (
+        <Txt style={[T.sub, { color: C.green, fontWeight: '700' }]}>✅ {t('wallet.linkedAs', { name: w.highrise_username ?? '' })}</Txt>
+      ) : (
+        <MenuRow emoji="🤝" label={t('wallet.link')} onPress={() => router.push('/link')} testID="link-row" />
+      )}
+      {w.transactions.length ? (
+        <Expandable title={t('wallet.history')} emoji="🧾" testID="gold-history">
+          <View style={{ gap: S.sm }}>
+            {w.transactions.map((tx, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 44, borderBottomWidth: i < w.transactions.length - 1 ? 1 : 0, borderBottomColor: C.separator }}>
+                <Txt style={[T.num, { color: tx.amount >= 0 ? C.green : C.text2, minWidth: 64 }]}>{tx.amount >= 0 ? '+' : '−'}{fmtNum(Math.abs(tx.amount))}</Txt>
+                <View style={{ flex: 1 }}>
+                  <Txt style={T.body}>{txWords(tx)}</Txt>
+                  {tx.created_at ? <Txt style={T.caption}>{relTime(tx.created_at)}</Txt> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        </Expandable>
+      ) : null}
+    </View>
+  );
+}
+
+export default function AccountTab() {
+  const router = useRouter();
   const session = useSession();
   const me = useQuery({ queryKey: keys.me, queryFn: account.me });
+  const wallet = useQuery({ queryKey: keys.wallet, queryFn: account.wallet });
+  const discord = useQuery({ queryKey: ['discord'], queryFn: account.discord });
   const user = me.data?.user ?? session.user;
 
   useEffect(() => {
     me.refetch();
+    wallet.refetch();
+    discord.refetch();
   }, []);
 
-  const version = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.0.0';
+  const version = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.1.0';
   const build = Application.nativeBuildVersion;
+  const ls = getLangSetting();
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Backdrop />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: S.lg, paddingTop: insets.top + S.lg, gap: S.xl, paddingBottom: insets.bottom + 110 }}>
-        <ScreenTitle title={t('account.title')} />
-        <Section title="">
-          <Row label={t('account.username')} value={user?.username ? `@${user.username}` : '–'} icon="person-outline" />
-          <Row
-            label={t('account.discord')}
-            icon="logo-discord"
-            last
-            right={
-              <Text style={[T.callout, { color: user?.discord_linked ? C.green : C.yellow }]}>
-                {user?.discord_linked ? t('account.discordLinked') : t('account.discordMissing')}
-              </Text>
-            }
-            onPress={user?.discord_linked ? undefined : () => openUrl(`${SITE}/verify`)}
-          />
-        </Section>
+    <Screen tab title={t('account.title')} testID="account">
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
+        <Txt style={{ fontSize: 44 }} maxFontSizeMultiplier={1.2}>🙂</Txt>
+        <View style={{ flex: 1 }}>
+          <Txt style={T.big} numberOfLines={1}>{user?.username ? `@${user.username}` : '–'}</Txt>
+          {me.data ? (
+            <Txt style={T.sub}>
+              {BOT_KINDS.map((k) => `${KIND_EMOJI[k]} ${me.data.counts[k] ?? 0}/${me.data.limits[k] ?? 0}`).join('   ')}
+            </Txt>
+          ) : null}
+        </View>
+      </Card>
 
-        {me.data ? (
-          <Section title={t('account.bots')}>
-            {BOT_KINDS.map((k, i) => (
-              <Row
-                key={k}
-                label={t(`kind.${k}`)}
-                value={t('account.botsOf', { count: me.data.counts[k] ?? 0, limit: me.data.limits[k] ?? 0 })}
-                last={i === BOT_KINDS.length - 1}
-              />
-            ))}
-          </Section>
-        ) : null}
+      {wallet.data ? <GoldCard w={wallet.data} /> : wallet.error ? <ErrorState error={wallet.error} onRetry={() => wallet.refetch()} /> : null}
 
-        <Section title={t('account.legal')}>
-          <Row label={t('account.privacy')} icon="shield-outline" onPress={() => openUrl(`${SITE}/privacy`)} />
-          <Row label={t('account.terms')} icon="document-text-outline" onPress={() => openUrl(`${SITE}/terms`)} />
-          <Row label={t('account.imprint')} icon="business-outline" onPress={() => openUrl(`${SITE}/imprint`)} />
-          <Row label={t('account.website')} icon="globe-outline" onPress={() => openUrl(SITE)} />
-          <Row label={t('account.support')} icon="logo-discord" onPress={() => openUrl(SUPPORT_DISCORD)} last />
-        </Section>
+      <View style={{ gap: S.sm }}>
+        <MenuRow
+          emoji="💬"
+          label={t('account.discord')}
+          value={user?.discord_linked
+            ? `✅ ${discord.data?.discord_username ? t('account.discordAs', { name: discord.data.discord_username }) : t('account.discordOn')}`
+            : `⚠️ ${t('account.discordOff')}`}
+          onPress={user?.discord_linked ? undefined : () => openUrl(discord.data?.verify_url || `${SITE}/verify`)}
+        />
+        <MenuRow testID="row-language" emoji="🌍" label={t('account.language')} value={ls === 'auto' ? t('lang.auto') : LANG_NAMES[ls]} onPress={() => router.push('/language')} />
+        <MenuRow testID="row-password" emoji="🔒" label={t('account.password')} onPress={() => router.push('/password')} />
+        <MenuRow testID="row-radios" emoji="📻" label={t('account.radios')} onPress={() => router.push('/radios')} />
+        <MenuRow testID="row-tickets" emoji="💌" label={t('account.tickets')} onPress={() => router.push('/tickets')} />
+      </View>
 
-        <Section title="">
-          <Row
-            label={t('account.logout')}
-            icon="log-out-outline"
-            onPress={async () => {
-              if (await confirm(t('account.logoutConfirm'), '', t('account.logout'), false)) signOut();
-            }}
-          />
-          <Row label={t('account.delete')} icon="trash-outline" danger last onPress={() => router.push('/delete-account')} />
-        </Section>
+      <SectionTitle title={t('account.legal')} />
+      <View style={{ gap: S.sm }}>
+        <MenuRow emoji="🛡️" label={t('account.privacy')} onPress={() => openUrl(`${SITE}/privacy`)} />
+        <MenuRow emoji="📄" label={t('account.terms')} onPress={() => openUrl(`${SITE}/terms`)} />
+        <MenuRow emoji="🏢" label={t('account.imprint')} onPress={() => openUrl(`${SITE}/imprint`)} />
+      </View>
 
-        <Text style={[T.caption, { textAlign: 'center' }]}>
-          HR Bots · {t('account.version', { v: build ? `${version} (${build})` : version })}
-          {MOCK ? ` · ${t('common.demo')}` : ''}
-        </Text>
-      </ScrollView>
-    </View>
+      <View style={{ gap: S.sm, marginTop: S.sm }}>
+        <MenuRow
+          testID="row-logout"
+          emoji="👋"
+          label={t('account.logout')}
+          onPress={async () => {
+            if (await confirm(t('account.logoutQ'), '', t('account.logout'), false)) signOut();
+          }}
+        />
+        <MenuRow testID="row-delete" emoji="🗑️" label={t('account.delete')} danger onPress={() => router.push('/delete-account')} />
+      </View>
+
+      <Txt style={[T.caption, { textAlign: 'center' }]}>
+        HR Bots · {t('account.version', { v: build ? `${version} (${build})` : version })}
+        {MOCK ? ` · ${t('common.demo')}` : ''}
+      </Txt>
+    </Screen>
   );
 }

@@ -13,6 +13,7 @@
 import { ApiError, type Handler, type Method } from './transport';
 import type {
   BannedAction, Bot, BotKind, BotStatus, Facing, MinRole, ModSettings, MusicSettings, Position, WelcomeSettings,
+  MusicRecentCommand, AutoplayFile, RadioStation, SupportTicketDetail, SupportReply, Wallet, VipZone,
 } from './types';
 import { FACINGS, INPUT_LIMITS as L } from './types';
 
@@ -27,6 +28,9 @@ type MockBot = Bot & {
   /** nächster Start stürzt ab (z. B. fehlende Designer-Rechte) */
   crashOnce?: boolean;
   logs: string[];
+  /** Teile, die nicht in GET /bots/:kind/:id stecken */
+  recent?: MusicRecentCommand[];
+  autoplay?: AutoplayFile[];
 };
 
 const now = () => Date.now();
@@ -76,6 +80,8 @@ const db: { bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string,
           { id: 16, message: 'The boss is here! Hi {username} 👑', target_username: 'bbos', active: false, priority: 0 },
         ],
         admins: ['bbos'],
+        tracking: [{ id: 61, username: 'k1ra', active: true }],
+        engine: 'js',
       } as WelcomeSettings,
     },
     {
@@ -94,6 +100,32 @@ const db: { bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string,
           { id: 3, name: 'vip', x: 14.5, y: 8.5, z: 28.5, min_role: 'vip' },
         ],
         commands: { go: '!go', tp: '!tp' },
+        engine: 'js',
+        wallet: { gold: 42, updated_at: ago(60) },
+        moderation: {
+          mutes: [{ id: 1, username: 'spammer99', muted_by: 'mila_x', created_at: ago(35) }],
+          warns: [{ username: 'lunaa', count: 2 }, { username: 'ghost_rider', count: 1 }],
+          bans_count: 1,
+          reports: [
+            { id: 1, reporter: 'k1ra', reported: 'spammer99', reason: 'Spam in chat', status: 'open', created_at: ago(50) },
+            { id: 2, reporter: 'beatz', reported: 'lunaa', reason: 'Rude words', status: 'closed', created_at: ago(60 * 26) },
+          ],
+          logs: [
+            { id: 3, action: 'mute', target: 'spammer99', done_by: 'mila_x', reason: 'spam', created_at: ago(35) },
+            { id: 2, action: 'warn', target: 'lunaa', done_by: 'bot', reason: 'word: spam', created_at: ago(80) },
+            { id: 1, action: 'kick', target: 'troll_22', done_by: 'bbos', reason: null, created_at: ago(60 * 5) },
+          ],
+        },
+        tracking: ['ghost_rider'],
+        guests: [{ username: 'mila_x', first_seen: ago(60 * 48) }, { username: 'beatz', first_seen: ago(60 * 20) }],
+        vip: { price: 0, safe_spot: { x: 10, y: 0, z: 10 }, zones: [{ id: 81, name: 'vip lounge', x1: 11.5, z1: 25.5, x2: 17.5, z2: 31.5 }] },
+        outfits: {
+          rotate: true, interval_minutes: 10,
+          list: [
+            { id: 91, name: 'Party', items: [{ id: 'shirt-f_punklace', palette: -1 }, { id: 'pants-n_jeans', palette: -1 }, { id: 'shoes-n_sneakers', palette: -1 }, { id: 'hair_front-n_short', palette: 2 }] },
+            { id: 92, name: 'Guard', items: [{ id: 'shirt-n_uniform', palette: -1 }, { id: 'pants-n_cargo', palette: -1 }, { id: 'hat-n_cap', palette: -1 }] },
+          ],
+        },
       } as ModSettings,
     },
     {
@@ -109,7 +141,18 @@ const db: { bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string,
         announcements: { lines: ['Request songs with !play <song>', 'Skip with !skip (DJs only)'], interval_sec: 600 },
         max_song_minutes: 8, autoplay: true,
         stream_url: 'https://radio.highrise-bots.com/mount_1a2b3c4d', icecast_password_set: true,
+        icecast: { host: 'radio.highrise-bots.com', port: 8000, user: 'source', mount: 'mount_1a2b3c4d', password_set: true },
+        engine: 'python',
+        gold_per_ticket: 3.3,
+        tickets: [{ username: 'dj.nova', tickets: 5 }, { username: 'mila_x', tickets: 2 }],
+        wallet: { gold: null, updated_at: null },
       } as MusicSettings,
+      recent: [
+        { id: 3, action: 'play', args: { query: 'lofi beats' }, requested_by: 'app', status: 'done', result: 'Added to queue', created_at: ago(12), executed_at: ago(12) },
+        { id: 2, action: 'skip', args: {}, requested_by: 'dj.nova', status: 'done', result: null, created_at: ago(20), executed_at: ago(20) },
+        { id: 1, action: 'volup', args: {}, requested_by: 'app', status: 'error', result: 'Bot offline', created_at: ago(60 * 3), executed_at: null },
+      ],
+      autoplay: [{ name: 'chill-intro.mp3', size: 3_400_000 }, { name: 'night-drive.mp3', size: 5_100_000 }],
     },
     {
       kind: 'welcome', id: 9, name: 'Party Welcome', room_id: '66bb00112233445566778899',
@@ -123,10 +166,49 @@ const db: { bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string,
           { id: 41, message: 'Welcome {username}, grab a drink 🍹', target_username: null, active: true, priority: 0 },
         ],
         admins: [],
+        tracking: [],
+        engine: 'js',
       } as WelcomeSettings,
     },
   ],
 };
+
+// ---- Konto-Teile ----
+const acct = {
+  password: 'demo',
+  highrise: { linked: false, highrise_username: null as string | null },
+  wallet: {
+    gold_balance: 302,
+    transactions: [
+      { amount: 10, reason: 'tip', created_at: ago(60 * 3) },
+      { amount: -200, reason: 'subscription', created_at: ago(60 * 30) },
+      { amount: 500, reason: 'admin_grant', created_at: ago(60 * 24 * 4) },
+      { amount: 2, reason: 'tip', created_at: ago(60 * 24 * 5) },
+    ],
+  },
+  radios: [
+    {
+      id: 1, name: 'Chill Radio', mount: 'mount_1a2b3c4d', stream_url: 'https://stream.highrise-bots.com/mount_1a2b3c4d',
+      source: { host: 'radio.highrise-bots.com', port: 8000, mount: 'mount_1a2b3c4d', user: 'source', password_set: true },
+      bundled_bot_id: 7, last_synced_bot_id: 7, active: true, unlimited: true, expires_at: null, deletable: false, created_at: '2026-06-01T18:00:00Z',
+    },
+    {
+      id: 2, name: 'Old Station', mount: 'mount_9f8e7d6c', stream_url: 'https://stream.highrise-bots.com/mount_9f8e7d6c',
+      source: { host: 'radio.highrise-bots.com', port: 8000, mount: 'mount_9f8e7d6c', user: 'source', password_set: true },
+      bundled_bot_id: null, last_synced_bot_id: null, active: false, unlimited: false, expires_at: iso(now() - 3 * 86400_000), deletable: true, created_at: '2026-08-01T10:00:00Z',
+    },
+  ] as RadioStation[],
+  tickets: [
+    {
+      id: 12, subject: 'My bot does not join', status: 'answered', created_at: ago(60 * 30), updated_at: ago(60 * 2),
+      body: 'Hi, my greeter bot does not come into my room.', bot: { kind: 'welcome', id: 4, name: 'Lobby Greeter' }, image: null,
+    },
+  ] as SupportTicketDetail[],
+  replies: {
+    12: [{ id: 1, author: 'admin', author_name: 'Team', body: 'Hi! Please give the bot Designer rights in your room, then turn it on again.', image: null, created_at: ago(60 * 2) }],
+  } as Record<number, SupportReply[]>,
+};
+let nextTicket = 13;
 
 // ---- Laufzeit / Status wie der Agent: Status ändert sich erst nach kurzer Zeit ----
 function tick(b: MockBot) {
@@ -293,13 +375,17 @@ function power(b: MockBot, action: 'start' | 'stop' | 'restart') {
 function botSettingsFor(kind: BotKind, owner: string, msgs: string[]): AnySettings {
   const position = defaultPos(kind);
   if (kind === 'welcome') {
-    return { position, messages: msgs.map((m) => ({ id: nextSub++, message: m, target_username: null, active: true, priority: 0 })), admins: [] };
+    return { position, engine: 'js', messages: msgs.map((m) => ({ id: nextSub++, message: m, target_username: null, active: true, priority: 0 })), admins: [], tracking: [] };
   }
   if (kind === 'mod') {
-    return { position, owner_username: owner, roles: { admin: [], moderator: [], vip: [] }, banned_words: [], welcomes: [], destinations: [], commands: { go: '!go', tp: '!tp' } };
+    return {
+      position, engine: 'js', owner_username: owner, roles: { admin: [], moderator: [], vip: [] }, banned_words: [], welcomes: [], destinations: [], commands: { go: '!go', tp: '!tp' },
+      moderation: { mutes: [], warns: [], bans_count: 0, reports: [], logs: [] }, tracking: [], guests: [], vip: { price: 0, safe_spot: null, zones: [] },
+      outfits: { rotate: false, interval_minutes: 10, list: [] },
+    };
   }
   return {
-    position, owner_username: owner, roles: { mod: [], dj: [], vip: [] }, blocked: [],
+    position, engine: 'js', owner_username: owner, roles: { mod: [], dj: [], vip: [] }, blocked: [], tickets: [],
     announcements: { lines: [], interval_sec: 300 }, max_song_minutes: 120, autoplay: false,
     stream_url: `https://radio.highrise-bots.com/mount_${Math.random().toString(16).slice(2, 10)}`, icecast_password_set: true,
   };
@@ -394,7 +480,19 @@ const routes: Route[] = [
       if (typeof facing !== 'string' || !FACINGS.includes(facing as Facing)) fail(400, 'invalid_input', 'position.facing must be one of ' + FACINGS.join(', '));
       position = { x, y, z, facing: facing as Facing };
     }
-    if (!Object.keys(next).length && !position) fail(400, 'invalid_input', 'Nothing to update');
+    let engine: 'js' | 'python' | undefined;
+    if (body.engine !== undefined) {
+      if (body.engine !== 'js' && body.engine !== 'python') fail(400, 'invalid_input', 'engine must be js or python');
+      engine = body.engine;
+    }
+    let owner: string | undefined;
+    if (body.owner_username !== undefined) {
+      if (b.kind === 'welcome') fail(400, 'invalid_input', 'owner_username only for mod/music');
+      owner = optUsername(body, 'owner_username') ?? '';
+    }
+    if (!Object.keys(next).length && !position && !engine && owner === undefined) fail(400, 'invalid_input', 'Nothing to update');
+    if (owner !== undefined) (b.settings as ModSettings | MusicSettings).owner_username = owner;
+    if (engine) (b.settings as { engine?: string }).engine = engine;
     Object.assign(b, next);
     if (position) b.settings.position = position;
     tick(b);
@@ -581,6 +679,305 @@ const routes: Route[] = [
     addLog(b, 'INFO', `Live command: ${a}${query ? ` "${query}"` : ''}`);
     return { ok: true, cmd_id: nextSub++ };
   }],
+
+  // ===== Erweiterungen (API.md, Stand 23.11.2026) =====
+  // ---- Welcome: Beobachten ----
+  ['GET', /^\/bots\/welcome\/(\d+)\/tracking$/, (m) => ({ tracking: ws(findBot('welcome', m[1])).tracking ?? [] })],
+  ['POST', /^\/bots\/welcome\/(\d+)\/tracking$/, (m, body) => {
+    const s = ws(findBot('welcome', m[1]));
+    const username = normUsername(body.username);
+    s.tracking = s.tracking ?? [];
+    const have = s.tracking.find((x) => x.username === username);
+    if (have) return { tracking: have };
+    const tracking = { id: nextSub++, username, active: true };
+    s.tracking.push(tracking);
+    return { tracking };
+  }],
+  ['PATCH', /^\/bots\/welcome\/(\d+)\/tracking\/(\d+)$/, (m, body) => {
+    const s = ws(findBot('welcome', m[1]));
+    const tr = (s.tracking ?? []).find((x) => String(x.id) === m[2]) ?? fail(404, 'not_found', 'Not found');
+    if (typeof body.active !== 'boolean') fail(400, 'invalid_input', 'active must be a boolean');
+    tr.active = body.active;
+    return { tracking: tr };
+  }],
+  ['DELETE', /^\/bots\/welcome\/(\d+)\/tracking\/(\d+)$/, (m) => {
+    const s = ws(findBot('welcome', m[1]));
+    if (!(s.tracking ?? []).some((x) => String(x.id) === m[2])) fail(404, 'not_found', 'Not found');
+    s.tracking = (s.tracking ?? []).filter((x) => String(x.id) !== m[2]);
+    return { ok: true };
+  }],
+  // ---- Mod ----
+  ['PATCH', /^\/bots\/mod\/(\d+)\/welcomes\/(\d+)$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    const w = s.welcomes.find((x) => String(x.id) === m[2]) ?? fail(404, 'not_found', 'Welcome not found');
+    if (body.message !== undefined) w.message = message(body);
+    if (body.active !== undefined) {
+      if (typeof body.active !== 'boolean') fail(400, 'invalid_input', 'active must be a boolean');
+      w.active = body.active;
+    }
+    return { welcome: w };
+  }],
+  ['PUT', /^\/bots\/mod\/(\d+)\/commands$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    const word = (k: string, def: string) => {
+      const v = body[k];
+      if (v === undefined) return s.commands[k as 'go' | 'tp'];
+      if (v === null || v === '') return def;
+      if (typeof v !== 'string' || !/^\S{1,20}$/.test(v)) fail(400, 'invalid_input', `${k} must be 1-20 characters without spaces`);
+      return v as string;
+    };
+    s.commands = { go: word('go', '!go'), tp: word('tp', '!tp') };
+    return { commands: s.commands };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/mutes\/([^/]+)$/, (m) => {
+    const md = ms(findBot('mod', m[1])).moderation!;
+    const u = normUsername(decodeURIComponent(m[2]));
+    if (!md.mutes.some((x) => x.username === u)) fail(404, 'not_found', 'No active mute');
+    md.mutes = md.mutes.filter((x) => x.username !== u);
+    return { ok: true };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/warns\/([^/]+)$/, (m) => {
+    const md = ms(findBot('mod', m[1])).moderation!;
+    const u = normUsername(decodeURIComponent(m[2]));
+    const w = md.warns.find((x) => x.username === u) ?? fail(404, 'not_found', 'No warnings');
+    md.warns = md.warns.filter((x) => x !== w);
+    return { ok: true, cleared: w.count };
+  }],
+  ['POST', /^\/bots\/mod\/(\d+)\/reports\/(\d+)\/close$/, (m) => {
+    const md = ms(findBot('mod', m[1])).moderation!;
+    const r = md.reports.find((x) => String(x.id) === m[2]) ?? fail(404, 'not_found', 'Report not found');
+    r.status = 'closed';
+    return { ok: true };
+  }],
+  ['POST', /^\/bots\/mod\/(\d+)\/tracking$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    const username = normUsername(body.username);
+    s.tracking = s.tracking ?? [];
+    if (!s.tracking.includes(username)) s.tracking.push(username);
+    return { ok: true, username, users: [...s.tracking] };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/tracking\/([^/]+)$/, (m) => {
+    const s = ms(findBot('mod', m[1]));
+    const u = normUsername(decodeURIComponent(m[2]));
+    if (!(s.tracking ?? []).includes(u)) fail(404, 'not_found', 'Not tracked');
+    s.tracking = (s.tracking ?? []).filter((x) => x !== u);
+    return { ok: true, users: [...s.tracking] };
+  }],
+  ['PUT', /^\/bots\/mod\/(\d+)\/vip$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    s.vip = s.vip ?? { price: 0, safe_spot: null, zones: [] };
+    if (body.safe_spot !== undefined) {
+      const p = body.safe_spot;
+      s.vip.safe_spot = p === null ? null : { x: finiteNum(p.x, 'x'), y: finiteNum(p.y, 'y'), z: finiteNum(p.z, 'z') };
+    }
+    if (body.price !== undefined) s.vip.price = intInRange(body.price, 'price', 0, 1000000);
+    return { vip: { price: s.vip.price, safe_spot: s.vip.safe_spot } };
+  }],
+  ['POST', /^\/bots\/mod\/(\d+)\/vip_zones$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    s.vip = s.vip ?? { price: 0, safe_spot: null, zones: [] };
+    const name = reqStr(body, 'name', L.destName);
+    const x = finiteNum(body.x, 'x');
+    const z = finiteNum(body.z, 'z');
+    const r = Math.abs(finiteNum(body.radius, 'radius'));
+    if (r > 1000) fail(400, 'invalid_input', 'radius must be 0-1000');
+    const zone: VipZone = { id: nextSub++, name, x1: x - r, z1: z - r, x2: x + r, z2: z + r };
+    s.vip.zones.push(zone);
+    return { zone };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/vip_zones\/(\d+)$/, (m) => {
+    const s = ms(findBot('mod', m[1]));
+    if (!s.vip?.zones.some((z) => String(z.id) === m[2])) fail(404, 'not_found', 'Zone not found');
+    s.vip!.zones = s.vip!.zones.filter((z) => String(z.id) !== m[2]);
+    return { ok: true };
+  }],
+  ['PUT', /^\/bots\/mod\/(\d+)\/outfit_settings$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    s.outfits = s.outfits ?? { rotate: false, interval_minutes: 10, list: [] };
+    if (body.rotate !== undefined) {
+      if (typeof body.rotate !== 'boolean') fail(400, 'invalid_input', 'rotate must be a boolean');
+      s.outfits.rotate = body.rotate;
+    }
+    if (body.interval_minutes !== undefined) s.outfits.interval_minutes = intInRange(body.interval_minutes, 'interval_minutes', 1, 10080);
+    return { rotate: s.outfits.rotate, interval_minutes: s.outfits.interval_minutes };
+  }],
+  ['POST', /^\/bots\/mod\/(\d+)\/outfits$/, (m, body) => {
+    const s = ms(findBot('mod', m[1]));
+    s.outfits = s.outfits ?? { rotate: false, interval_minutes: 10, list: [] };
+    const name = optStr(body, 'name', 40) || 'Outfit';
+    const raw: unknown[] = Array.isArray(body.items) ? body.items : typeof body.items === 'string' ? body.items.split('\n') : fail(400, 'missing_fields', 'items required');
+    const items = raw.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => {
+      const [id, pal] = x.trim().split(':');
+      return { id, palette: pal !== undefined && Number.isFinite(Number(pal)) ? Number(pal) : -1 };
+    });
+    if (!items.length || items.length > 50) fail(400, 'invalid_input', '1-50 items');
+    const outfit = { id: nextSub++, name, items };
+    s.outfits.list.push(outfit);
+    return { outfit };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/outfits\/(\d+)$/, (m) => {
+    const s = ms(findBot('mod', m[1]));
+    if (!s.outfits?.list.some((o) => String(o.id) === m[2])) fail(404, 'not_found', 'Outfit not found');
+    s.outfits!.list = s.outfits!.list.filter((o) => String(o.id) !== m[2]);
+    return { ok: true };
+  }],
+  ['DELETE', /^\/bots\/mod\/(\d+)\/outfits$/, (m) => {
+    const s = ms(findBot('mod', m[1]));
+    const deleted = s.outfits?.list.length ?? 0;
+    if (s.outfits) s.outfits.list = [];
+    return { ok: true, deleted };
+  }],
+  // ---- Music ----
+  ['POST', /^\/bots\/music\/(\d+)\/blocked$/, (m, body) => {
+    const s = mus(findBot('music', m[1]));
+    const u = normUsername(body.username);
+    if (!s.blocked.includes(u)) s.blocked.push(u);
+    return { ok: true, username: u, users: [...s.blocked] };
+  }],
+  ['DELETE', /^\/bots\/music\/(\d+)\/blocked\/([^/]+)$/, (m) => {
+    const s = mus(findBot('music', m[1]));
+    const u = normUsername(decodeURIComponent(m[2]));
+    if (!s.blocked.includes(u)) fail(404, 'not_found', 'Not blocked');
+    s.blocked = s.blocked.filter((x) => x !== u);
+    return { ok: true, users: [...s.blocked] };
+  }],
+  ['GET', /^\/bots\/music\/(\d+)\/tickets$/, (m) => ({ tickets: (mus(findBot('music', m[1])).tickets ?? []).filter((t) => t.tickets > 0) })],
+  ['POST', /^\/bots\/music\/(\d+)\/tickets$/, (m, body) => {
+    const s = mus(findBot('music', m[1]));
+    const username = normUsername(body.username);
+    const delta = intInRange(body.delta, 'delta', -1000000, 1000000);
+    if (delta === 0) fail(400, 'invalid_input', 'delta must not be 0');
+    s.tickets = s.tickets ?? [];
+    let row = s.tickets.find((t) => t.username === username);
+    if (!row) s.tickets.push((row = { username, tickets: 0 }));
+    row.tickets = Math.max(0, row.tickets + delta);
+    s.tickets = s.tickets.filter((t) => t.tickets > 0);
+    return { ok: true, username, tickets: row.tickets };
+  }],
+  ['GET', /^\/bots\/music\/(\d+)\/commands$/, (m) => ({ commands: findBot('music', m[1]).recent ?? [] })],
+  ['PUT', /^\/bots\/music\/(\d+)\/icecast$/, (m, body) => {
+    const s = mus(findBot('music', m[1]));
+    const host = reqStr(body, 'host', 200, 'missing_fields');
+    const user = reqStr(body, 'user', 100, 'missing_fields');
+    const mount = reqStr(body, 'mount', 200, 'missing_fields').replace(/^\//, '');
+    const port = intInRange(body.port, 'port', 1, 65535);
+    const pw = optStr(body, 'password', 200);
+    if (!pw && !s.icecast?.password_set) fail(400, 'missing_fields', 'password is required');
+    s.icecast = { host, port, user, mount, password_set: true };
+    s.icecast_password_set = true;
+    s.stream_url = `http://${host}${port === 80 ? '' : `:${port}`}/${mount}`;
+    return { icecast: s.icecast, stream_url: s.stream_url };
+  }],
+  ['GET', /^\/bots\/music\/(\d+)\/autoplay$/, (m) => ({ files: findBot('music', m[1]).autoplay ?? [], max_files: 20, max_bytes: 10485760 })],
+  ['DELETE', /^\/bots\/music\/(\d+)\/autoplay\/([^/]+)$/, (m) => {
+    const b = findBot('music', m[1]);
+    const name = decodeURIComponent(m[2]);
+    if (!name.toLowerCase().endsWith('.mp3')) fail(400, 'invalid_input', 'only .mp3');
+    b.autoplay = (b.autoplay ?? []).filter((f) => f.name !== name);
+    return { ok: true };
+  }],
+  // ---- Konto ----
+  ['POST', /^\/me\/password$/, (_m, body) => {
+    if (typeof body.current_password !== 'string' || typeof body.new_password !== 'string' || !body.current_password || !body.new_password) {
+      fail(400, 'missing_fields', 'current_password and new_password are required');
+    }
+    if (body.current_password === 'wrong') fail(401, 'invalid_credentials', 'Current password is wrong');
+    if (body.new_password.length < 4 || body.new_password.length > 200) fail(400, 'invalid_input', 'new_password must be 4-200 characters');
+    acct.password = body.new_password;
+    return { ok: true };
+  }],
+  ['GET', /^\/me\/link$/, () => ({ ...acct.highrise })],
+  ['POST', /^\/me\/link$/, (_m, body) => {
+    const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+    if (!code) fail(400, 'missing_fields', 'code is required');
+    if (!/^[A-Z0-9]{6}$/.test(code)) fail(400, 'invalid_input', 'code must be 6 characters');
+    if (acct.highrise.linked) fail(409, 'already_linked', 'Already linked');
+    if (code === 'USED00') fail(409, 'code_used', 'Code already used');
+    if (code === 'TAKEN0') fail(409, 'highrise_account_taken', 'Highrise account already linked to another account');
+    if (code !== 'ABC234') fail(400, 'invalid_code', 'Unknown code');
+    acct.highrise = { linked: true, highrise_username: 'bbos' };
+    return { ok: true, highrise_username: 'bbos', claimed_gold: 0 };
+  }],
+  ['GET', /^\/me\/discord$/, (_m, _b, u) => {
+    const linked = u.username.toLowerCase() !== 'nodiscord';
+    return { linked, discord_username: linked ? `${u.username.toLowerCase()}#discord` : null, required: true, verify_url: 'https://highrise-bots.com/verify', invite_url: null };
+  }],
+  ['GET', /^\/me\/wallet$/, () => ({
+    gold_balance: acct.wallet.gold_balance,
+    highrise_linked: acct.highrise.linked,
+    highrise_username: acct.highrise.highrise_username,
+    transactions: acct.wallet.transactions.slice(0, 20),
+  } satisfies Wallet)],
+  // ---- Radio ----
+  ['GET', /^\/radio$/, () => ({ stations: acct.radios })],
+  ['GET', /^\/radio\/(\d+)$/, (m) => ({ station: acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found') })],
+  ['GET', /^\/radio\/(\d+)\/status$/, (m) => {
+    const st = acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found');
+    const live = st.active && db.bots.some((b) => b.kind === 'music' && b.id === st.last_synced_bot_id && b.status === 'running');
+    return { live, listeners: live ? 3 : null };
+  }],
+  ['POST', /^\/radio\/(\d+)\/sync$/, (m, body) => {
+    const st = acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found');
+    if (typeof body.bot_id !== 'number') fail(400, 'invalid_input', 'bot_id must be a number');
+    const b = findBot('music', String(body.bot_id));
+    st.last_synced_bot_id = b.id;
+    mus(b).stream_url = st.stream_url;
+    return { ok: true, bot_id: b.id };
+  }],
+  ['DELETE', /^\/radio\/(\d+)$/, (m) => {
+    const st = acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found');
+    if (st.bundled_bot_id) fail(409, 'bundled_station', 'Station belongs to a music bot');
+    if (!st.deletable) fail(409, 'subscription_active', 'Station is still active');
+    acct.radios = acct.radios.filter((r) => r !== st);
+    return { ok: true };
+  }],
+  // ---- Nachrichten ans Team ----
+  ['GET', /^\/me\/tickets$/, () => ({
+    tickets: [...acct.tickets].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+      .map(({ id, subject, status, created_at, updated_at }) => ({ id, subject, status, created_at, updated_at })),
+  })],
+  ['POST', /^\/me\/tickets$/, (_m, body) => {
+    const subject = reqStr(body, 'subject', 200, 'missing_fields');
+    const text = reqStr(body, 'body', 4000, 'missing_fields');
+    if (text.length < 10) fail(400, 'invalid_input', 'body must be at least 10 characters');
+    if (acct.tickets.filter((t) => t.status !== 'closed').length >= 5) fail(403, 'limit_reached', 'Too many open tickets');
+    let bot: SupportTicketDetail['bot'] = null;
+    if (body.bot_kind !== undefined) {
+      if (body.bot_kind !== 'welcome' && body.bot_kind !== 'mod') fail(400, 'invalid_input', 'bot_kind must be welcome or mod');
+      const b = findBot(body.bot_kind, String(body.bot_id));
+      bot = { kind: b.kind, id: b.id, name: b.name };
+    }
+    const tk: SupportTicketDetail = { id: nextTicket++, subject, status: 'open', created_at: iso(now()), updated_at: iso(now()), body: text, bot, image: null };
+    acct.tickets.push(tk);
+    acct.replies[tk.id] = [];
+    return { ticket: tk };
+  }],
+  ['GET', /^\/me\/tickets\/(\d+)$/, (m) => {
+    const ticket = acct.tickets.find((t) => String(t.id) === m[1]) ?? fail(404, 'not_found', 'Ticket not found');
+    return { ticket, replies: acct.replies[ticket.id] ?? [] };
+  }],
+  ['POST', /^\/me\/tickets\/(\d+)\/replies$/, (m, body) => {
+    const tk = acct.tickets.find((t) => String(t.id) === m[1]) ?? fail(404, 'not_found', 'Ticket not found');
+    if (tk.status === 'closed') fail(409, 'ticket_closed', 'Ticket is closed');
+    const text = reqStr(body, 'body', 4000, 'missing_fields');
+    if (text.length < 2) fail(400, 'invalid_input', 'body must be at least 2 characters');
+    const reply: SupportReply = { id: nextSub++, author: 'user', author_name: null, body: text, image: null, created_at: iso(now()) };
+    (acct.replies[tk.id] = acct.replies[tk.id] ?? []).push(reply);
+    tk.status = 'open';
+    tk.updated_at = iso(now());
+    return { reply };
+  }],
+  // ---- Hilfe-Chatbot ----
+  ['POST', /^\/chat$/, (_m, body) => {
+    if (!Array.isArray(body.messages) || !body.messages.length) fail(400, 'missing_fields', 'messages required');
+    const last = String(body.messages[body.messages.length - 1]?.content ?? '').toLowerCase();
+    const de = body.lang === 'de';
+    const ar = body.lang === 'ar';
+    const reply = /designer|room|raum|غرف/.test(last)
+      ? ar ? 'أعطِ البوت صلاحية Designer في غرفتك، ثم أطفئه وشغّله. 🙂' : de ? 'Gib dem Bot Designer-Rechte in deinem Raum und schalte ihn dann aus und wieder an. 🙂' : 'Give the bot Designer rights in your room, then turn it off and on again. 🙂'
+      : ar ? 'أنا مساعد تجريبي. اسألني عن البوتات! 🤖' : de ? 'Ich bin ein Demo-Helfer. Frag mich zu deinen Bots! 🤖' : 'I am a demo helper. Ask me about your bots! 🤖';
+    return { reply, limit_reached: false };
+  }],
 ];
 
 export const mockHandler: Handler = async (method, path, body, token) => {
@@ -602,7 +999,7 @@ export const mockHandler: Handler = async (method, path, body, token) => {
   }
   // Bearer-Pflicht für alles außer Login (auch Logout), dann Discord-Pflicht außer /me, /me/delete, /auth/*
   const u = userFromToken(token);
-  const exempt = path === '/me' || path === '/me/delete' || path.startsWith('/auth/');
+  const exempt = path === '/me' || path === '/me/delete' || path === '/me/discord' || path.startsWith('/auth/');
   if (!u.discord_linked && !exempt) fail(403, 'discord_required', 'Link your Discord account on the website first');
   for (const [m, re, fn] of routes) {
     if (m !== method) continue;
