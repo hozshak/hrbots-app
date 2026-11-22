@@ -17,7 +17,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleLocalizations": [
           "en",
-          "de"
+          "de",
+          "ar"
         ],
         "CFBundleDevelopmentRegion": "en"
       }
