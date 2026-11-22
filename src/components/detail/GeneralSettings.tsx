@@ -86,7 +86,7 @@ export function NameRoomEditor({ detail }: { detail: BotDetail }) {
 }
 
 export function KeyEditor({ detail, startOpen }: { detail: BotDetail; startOpen?: boolean }) {
-  const { bot, settings } = detail;
+  const { bot } = detail;
   const { busy, save } = useSave(bot);
   const [open, setOpen] = useState(!!startOpen);
   const [token, setToken] = useState('');
@@ -94,8 +94,8 @@ export function KeyEditor({ detail, startOpen }: { detail: BotDetail; startOpen?
     <View style={{ gap: S.md }}>
       {!open ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
-          <Ionicons name={settings.bot_token_set ? 'checkmark-circle' : 'alert-circle'} size={22} color={settings.bot_token_set ? C.green : C.yellow} />
-          <Text style={[T.body, { flex: 1 }]}>{settings.bot_token_set ? t('detail.tokenSaved') : t('detail.tokenNotSet')}</Text>
+          <Ionicons name={bot.bot_token_set ? 'checkmark-circle' : 'alert-circle'} size={22} color={bot.bot_token_set ? C.green : C.yellow} />
+          <Text style={[T.body, { flex: 1 }]}>{bot.bot_token_set ? t('detail.tokenSaved') : t('detail.tokenNotSet')}</Text>
           <Button label={t('detail.tokenReplace')} small variant="secondary" onPress={() => setOpen(true)} testID="token-replace" />
         </View>
       ) : (

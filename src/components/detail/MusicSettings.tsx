@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { music, type MusicAction, type MusicRole, type MusicSettings as MSet } from '@/api';
+import { music, INPUT_LIMITS, type MusicAction, type MusicRole, type MusicSettings as MSet } from '@/api';
 import { t } from '@/lib/i18n';
 import { haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
@@ -37,6 +37,7 @@ export function LiveControls({ id, running }: { id: number; running: boolean }) 
           value={query}
           onChangeText={setQuery}
           placeholder={t('music.search')}
+          maxLength={INPUT_LIMITS.query}
           editable={!off}
           returnKeyType="search"
           onSubmitEditing={() => query.trim() && send('play', query.trim())}
@@ -101,7 +102,7 @@ export function AnnouncementsEditor({ id, settings }: P) {
   useEffect(() => setLines(settings.announcements.lines), [settings.announcements.lines.join('|')]);
   useEffect(() => setIntervalSec(String(settings.announcements.interval_sec)), [settings.announcements.interval_sec]);
   const iv = Number(interval);
-  const ivOk = Number.isFinite(iv) && iv >= 30 && iv <= 3600;
+  const ivOk = Number.isInteger(iv) && iv >= INPUT_LIMITS.intervalMin && iv <= INPUT_LIMITS.intervalMax;
   const changed = lines.join('|') !== settings.announcements.lines.join('|') || iv !== settings.announcements.interval_sec;
   return (
     <View style={{ gap: S.sm }}>
@@ -112,7 +113,7 @@ export function AnnouncementsEditor({ id, settings }: P) {
           value={l}
           placeholder={t('music.line', { n: i + 1 })}
           onChangeText={(v) => setLines((ls) => ls.map((x, j) => (j === i ? v : x)))}
-          maxLength={200}
+          maxLength={INPUT_LIMITS.announceLine}
           right={
             <Pressable accessibilityRole="button" accessibilityLabel={t('common.remove')} hitSlop={8} style={{ padding: 10 }} onPress={() => setLines((ls) => ls.filter((_, j) => j !== i))}>
               <Ionicons name="close-circle" size={20} color={C.text3} />
@@ -120,7 +121,7 @@ export function AnnouncementsEditor({ id, settings }: P) {
           }
         />
       ))}
-      {lines.length < 20 ? (
+      {lines.length < INPUT_LIMITS.announceLines ? (
         <Button label={t('music.addLine')} small variant="secondary" icon="add" onPress={() => setLines((ls) => [...ls, ''])} style={{ alignSelf: 'flex-start' }} />
       ) : null}
       <Divider />
@@ -154,7 +155,7 @@ export function PlaybackEditor({ id, settings }: P) {
   useEffect(() => setMaxSong(String(settings.max_song_minutes)), [settings.max_song_minutes]);
   useEffect(() => setAutoplay(settings.autoplay), [settings.autoplay]);
   const ms = Number(maxSong);
-  const msOk = Number.isFinite(ms) && ms >= 1;
+  const msOk = Number.isInteger(ms) && ms >= INPUT_LIMITS.songMin && ms <= INPUT_LIMITS.songMax;
   const changed = ms !== settings.max_song_minutes || autoplay !== settings.autoplay;
   return (
     <View style={{ gap: S.md }}>

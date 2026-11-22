@@ -2,7 +2,8 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? 'https://highrise-bots.com/api/v1';
+// Basis-URL der API. Zum lokalen Testen z. B. EXPO_PUBLIC_API_BASE=http://127.0.0.1:8788/api/v1 (wrangler dev).
+export const API_BASE = (process.env.EXPO_PUBLIC_API_BASE || 'https://highrise-bots.com/api/v1').replace(/\/+$/, '');
 export const SITE = 'https://highrise-bots.com';
 export const MOCK = process.env.EXPO_PUBLIC_API_MOCK === '1';
 

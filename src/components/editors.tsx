@@ -2,7 +2,7 @@
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { BotKind } from '@/api';
+import { cleanUsername, isUsername, INPUT_LIMITS, type BotKind } from '@/api';
 import { keys, queryClient } from '@/lib/query';
 import { errorText, t } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
@@ -32,15 +32,17 @@ export function useBotChange(kind: BotKind, id: number) {
   return { busy, run };
 }
 
-const cleanUser = (s: string) => s.trim().replace(/^@/, '');
+// Server nimmt nur Highrise-Namen [a-z0-9._-] (1–40) an; hier vorher prüfen statt 400 invalid_input.
+const cleanUser = cleanUsername;
 
 export function UserList({ users, onAdd, onRemove, busy }: {
   users: string[]; onAdd: (u: string) => Promise<boolean>; onRemove: (u: string) => void; busy?: boolean;
 }) {
   const [name, setName] = useState('');
+  const u = cleanUser(name);
+  const bad = !!u && !isUsername(u);
   const add = async () => {
-    const u = cleanUser(name);
-    if (!u) return;
+    if (!u || bad) return;
     if (await onAdd(u)) setName('');
   };
   return (
@@ -61,10 +63,12 @@ export function UserList({ users, onAdd, onRemove, busy }: {
           onChangeText={setName}
           placeholder={t('common.username')}
           autoCapitalize="none"
+          maxLength={INPUT_LIMITS.username + 1}
           returnKeyType="done"
           onSubmitEditing={add}
+          error={bad ? t('common.usernameInvalid') : null}
         />
-        <Button label={t('common.add')} small variant="secondary" icon="add" onPress={add} disabled={!cleanUser(name)} loading={busy} style={{ marginTop: 4 }} />
+        <Button label={t('common.add')} small variant="secondary" icon="add" onPress={add} disabled={!u || bad} loading={busy} style={{ marginTop: 4 }} />
       </View>
     </View>
   );
@@ -110,8 +114,9 @@ export function AddMessage({ placeholder, onAdd, busy, withTarget = true }: {
 }) {
   const [msg, setMsg] = useState('');
   const [target, setTarget] = useState('');
+  const targetBad = !!cleanUser(target) && !isUsername(target);
   const add = async () => {
-    if (!msg.trim()) return;
+    if (!msg.trim() || targetBad) return;
     if (await onAdd(msg.trim(), cleanUser(target) || undefined)) {
       setMsg('');
       setTarget('');
@@ -119,9 +124,11 @@ export function AddMessage({ placeholder, onAdd, busy, withTarget = true }: {
   };
   return (
     <View style={{ gap: S.sm, marginTop: S.md }}>
-      <Field value={msg} onChangeText={setMsg} placeholder={placeholder} multiline />
-      {withTarget ? <Field value={target} onChangeText={setTarget} placeholder={t('welcome.target')} autoCapitalize="none" /> : null}
-      <Button label={t('common.add')} small icon="add" variant="secondary" onPress={add} disabled={!msg.trim()} loading={busy} style={{ alignSelf: 'flex-start' }} />
+      <Field value={msg} onChangeText={setMsg} placeholder={placeholder} multiline maxLength={INPUT_LIMITS.message} />
+      {withTarget ? (
+        <Field value={target} onChangeText={setTarget} placeholder={t('welcome.target')} autoCapitalize="none" maxLength={INPUT_LIMITS.username + 1} error={targetBad ? t('common.usernameInvalid') : null} />
+      ) : null}
+      <Button label={t('common.add')} small icon="add" variant="secondary" onPress={add} disabled={!msg.trim() || targetBad} loading={busy} style={{ alignSelf: 'flex-start' }} />
     </View>
   );
 }

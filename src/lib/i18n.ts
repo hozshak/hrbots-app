@@ -17,6 +17,7 @@ const en = {
   'common.loading': 'Loading…',
   'common.optional': 'optional',
   'common.username': 'Username',
+  'common.usernameInvalid': 'Highrise usernames only use letters, numbers, dots, dashes and underscores (max. 40).',
   'common.none': 'None yet',
   'common.demo': 'Demo mode – no server, sample data',
 
@@ -190,7 +191,7 @@ const en = {
   'music.intervalInvalid': 'Use a value between 30 and 3600.',
   'music.playback': 'Playback',
   'music.maxSong': 'Max song length (minutes)',
-  'music.maxSongInvalid': 'At least 1 minute.',
+  'music.maxSongInvalid': 'Whole minutes from 1 to 1440.',
 
   // Aktivität & Logs
   'activity.empty': 'No activity yet.',
@@ -245,6 +246,8 @@ const en = {
   'err.bot_not_running': 'The bot is not running.',
   'err.offline': 'No connection. Check your internet and try again.',
   'err.server_error': 'Something went wrong. Please try again.',
+  'err.internal_error': 'Something went wrong on our server. Please try again.',
+  'err.invalid_input': 'Something you entered is not valid. Please check it.',
 
   // --- einfache Oberfläche (Reiter, Assistent, Abschnitte, Hilfe) ---
   'tab.bots': 'Bots',
@@ -385,6 +388,7 @@ const de: Record<Key, string> = {
   'common.loading': 'Lädt …',
   'common.optional': 'optional',
   'common.username': 'Benutzername',
+  'common.usernameInvalid': 'Highrise-Namen bestehen nur aus Buchstaben, Zahlen, Punkt, Minus und Unterstrich (max. 40).',
   'common.none': 'Noch keine',
   'common.demo': 'Demo-Modus – kein Server, Beispieldaten',
 
@@ -549,7 +553,7 @@ const de: Record<Key, string> = {
   'music.intervalInvalid': 'Bitte einen Wert zwischen 30 und 3600.',
   'music.playback': 'Wiedergabe',
   'music.maxSong': 'Maximale Songlänge (Minuten)',
-  'music.maxSongInvalid': 'Mindestens 1 Minute.',
+  'music.maxSongInvalid': 'Ganze Minuten von 1 bis 1440.',
 
   'activity.empty': 'Noch keine Aktivität.',
   'activity.join': 'ist gekommen',
@@ -601,6 +605,8 @@ const de: Record<Key, string> = {
   'err.bot_not_running': 'Der Bot läuft nicht.',
   'err.offline': 'Keine Verbindung. Prüfe dein Internet und versuch es erneut.',
   'err.server_error': 'Etwas ist schiefgelaufen. Bitte versuch es erneut.',
+  'err.internal_error': 'Auf unserem Server ist etwas schiefgelaufen. Bitte versuch es erneut.',
+  'err.invalid_input': 'Eine Eingabe ist ungültig. Bitte prüfe sie.',
 
   // --- einfache Oberfläche (Reiter, Assistent, Abschnitte, Hilfe) ---
   'tab.bots': 'Bots',

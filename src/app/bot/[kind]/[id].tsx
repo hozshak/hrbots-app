@@ -260,7 +260,7 @@ export default function BotScreen() {
 
           <View style={{ gap: S.sm, marginTop: S.lg }}>
             <Button label={t('detail.delete')} variant="danger" icon="trash-outline" onPress={remove} loading={deleting} testID="detail-delete" />
-            <Text style={[T.caption, { textAlign: 'center' }]}>{t('detail.created', { date: shortDate(d.bot.created_at) })}</Text>
+            {d.bot.created_at ? <Text style={[T.caption, { textAlign: 'center' }]}>{t('detail.created', { date: shortDate(d.bot.created_at) })}</Text> : null}
           </View>
         </ScrollView>
       )}

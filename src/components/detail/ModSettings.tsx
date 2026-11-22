@@ -1,7 +1,7 @@
 // Moderations-Bot: Team-Rollen, verbotene Wörter mit Aktion, Willkommensnachrichten, Teleport-Ziele – je ein Abschnitt.
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { mod, BANNED_ACTIONS, MIN_ROLES, type BannedAction, type MinRole, type ModRole, type ModSettings as MS } from '@/api';
+import { mod, BANNED_ACTIONS, INPUT_LIMITS, MIN_ROLES, type BannedAction, type MinRole, type ModRole, type ModSettings as MS } from '@/api';
 import { t } from '@/lib/i18n';
 import { content } from '@/lib/content';
 import { confirm } from '@/lib/ui';
@@ -42,7 +42,7 @@ export function BannedWordsEditor({ id, settings }: P) {
         />
       ))}
       <View style={{ gap: S.sm, marginTop: S.md }}>
-        <Field value={word} onChangeText={setWord} placeholder={t('mod.word')} autoCapitalize="none" testID="banned-word" />
+        <Field value={word} onChangeText={setWord} placeholder={t('mod.word')} autoCapitalize="none" maxLength={INPUT_LIMITS.word} testID="banned-word" />
         <Text style={T.sub}>{t('mod.bannedHint')}</Text>
         <Segmented<BannedAction> value={action} onChange={setAction} options={BANNED_ACTIONS.map((a) => ({ value: a, label: t(`mod.action.${a}`) }))} />
         <Button
@@ -98,7 +98,7 @@ export function DestinationsEditor({ id, settings }: P) {
         <ItemRow key={d.id} title={d.name} subtitle={`${d.x}, ${d.y}, ${d.z} · ${t(`minrole.${d.min_role}`)}`} onDelete={() => run(() => mod.removeDestination(id, d.id))} />
       ))}
       <View style={{ gap: S.sm, marginTop: S.md }}>
-        <Field value={dName} onChangeText={setDName} placeholder={t('mod.destName')} autoCapitalize="none" testID="dest-name" />
+        <Field value={dName} onChangeText={setDName} placeholder={t('mod.destName')} autoCapitalize="none" maxLength={INPUT_LIMITS.destName} testID="dest-name" />
         <View style={{ flexDirection: 'row', gap: S.sm }}>
           {([['x', dx, setDx], ['y', dy, setDy], ['z', dz, setDz]] as const).map(([l, v, set]) => (
             <Field key={l} style={{ flex: 1 }} value={v} placeholder={l.toUpperCase()} keyboardType="numbers-and-punctuation" onChangeText={(s) => set(s.replace(/[^0-9.,-]/g, ''))} testID={`dest-${l}`} />

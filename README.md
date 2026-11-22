@@ -17,8 +17,13 @@ Bot-Token wird nach dem Speichern nie angezeigt („Schlüssel gespeichert“).
 - `src/lib/` – Sprache (`i18n.ts`, Englisch + Deutsch nach Gerätesprache), Hilfetexte/Befehle/Vorlagen (`content.ts`), Daten-Cache und
   Start/Stopp mit Nachfragen (`query.ts`), Anmeldung (`session.ts`), Farben (`theme.ts`)
 
-Annahme: Die Form von `settings` in `GET /bots/:kind/:id` steht in API.md nicht genau – sie ist in `src/api/types.ts` festgelegt
-(aus den Tabellen der Webseite abgeleitet). Beim Bau der API genau so liefern oder die Typen anpassen.
+Die Typen in `src/api/types.ts` und der Mock (`src/api/mock.ts`) sind genau mit dem Server-Code abgeglichen
+(`worker/src/routes/api_v1.ts`; Formen auch in API.md).
+
+## Gegen einen lokalen Server testen
+Server: im Ordner `highrise-manager/worker` `npx wrangler dev --local --port 8788 --test-scheduled --var AGENT_URL:http://127.0.0.1:9 --var AGENT_SECRET:local-test`.
+App: `EXPO_PUBLIC_API_BASE=http://127.0.0.1:8788/api/v1 npx expo start --web --port 8096` (Standard ohne Variable: `https://highrise-bots.com/api/v1`).
+Die API erlaubt CORS (`*`), daher klappt die Web-Vorschau direkt.
 
 ## Im Browser testen (ohne Server, MOCK)
 ```
@@ -46,5 +51,5 @@ Version/Build-Nummer zählt bei Expo weiter (`appVersionSource: remote`). Kennun
 3. **GitHub-Repo** anlegen, pushen, Secrets setzen: `EXPO_TOKEN` (Expo-Konto en0o0n) und `ASC_API_KEY_P8` (Schlüssel DNMHB7CB28 wie bei Asoo).
 4. **App-Symbol**: jetzt ein Platzhalter (`scripts/make-icon.py` → `assets/images/icon.png` 1024×1024 und `splash-icon.png`). Für die
    Veröffentlichung ein richtiges Symbol einsetzen.
-5. **Server**: die API v1 auf highrise-bots.com bauen (laut API.md noch nicht vorhanden); danach in der App ohne MOCK gegen den echten Server testen.
+5. **Server**: API v1 ist live und lokal mit der App getestet; CORS-Änderung muss noch deployt werden, dann in der App ohne MOCK gegen highrise-bots.com testen.
 6. App-Store-Texte, Datenschutz-Angaben und Screenshots.

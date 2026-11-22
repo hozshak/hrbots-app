@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { welcome, type WelcomeMessage, type WelcomeSettings as WS } from '@/api';
+import { welcome, INPUT_LIMITS, type WelcomeMessage, type WelcomeSettings as WS } from '@/api';
 import { t } from '@/lib/i18n';
 import { content } from '@/lib/content';
 import { confirm } from '@/lib/ui';
@@ -30,7 +30,7 @@ function MessageRow({ m, onToggle, onSave, onDelete }: {
       </View>
       {edit ? (
         <View style={{ gap: S.sm }}>
-          <Field value={text} onChangeText={setText} multiline maxLength={200} autoFocus />
+          <Field value={text} onChangeText={setText} multiline maxLength={INPUT_LIMITS.message} autoFocus />
           <View style={{ flexDirection: 'row', gap: S.sm }}>
             <Button label={t('common.save')} small disabled={!text.trim() || text.trim() === m.message} onPress={async () => { if (await onSave(text.trim())) setEdit(false); }} />
             <Button label={t('common.cancel')} small variant="ghost" onPress={() => setEdit(false)} />

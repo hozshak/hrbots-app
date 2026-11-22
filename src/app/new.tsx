@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { bots, isBotToken, parseRoom, BOT_KINDS, type Bot, type BotKind } from '@/api';
+import { bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, type Bot, type BotKind } from '@/api';
 import { keys, powerBot, queryClient } from '@/lib/query';
 import { hasRuntime } from '@/lib/format';
 import { content, CREATE_HIGHRISE, type GuideKey } from '@/lib/content';
@@ -95,7 +95,8 @@ export default function NewBot() {
         : step === 'room' ? roomCheck.ok
           : step === 'token' ? tokenOk
             : step === 'messages' ? msgs.length >= 2
-              : true;
+              : step === 'owner' ? !owner.trim() || isUsername(owner)
+                : true;
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const go = (s: Step) => {
@@ -135,7 +136,7 @@ export default function NewBot() {
         room: room.trim(),
         bot_token: token.trim(),
         ...(kind === 'welcome' ? { welcome_messages: msgs } : {}),
-        ...(kind === 'mod' && owner.trim() ? { owner_username: owner.trim().replace(/^@/, '') } : {}),
+        ...(kind === 'mod' && owner.trim() ? { owner_username: cleanUsername(owner) } : {}),
       });
       setToken('');
       haptic.success();
@@ -383,6 +384,8 @@ export default function NewBot() {
                   onChangeText={setOwner}
                   placeholder="username"
                   autoCapitalize="none"
+                  maxLength={41}
+                  error={owner.trim() && !isUsername(owner) ? t('common.usernameInvalid') : null}
                   autoFocus
                   returnKeyType="next"
                   onSubmitEditing={next}

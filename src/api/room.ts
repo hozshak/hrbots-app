@@ -28,7 +28,16 @@ export function parseRoom(input: string): RoomCheck {
   return { ok: true, roomId: m[1].toLowerCase() };
 }
 
-/** Highrise-Bot-Token (meist 64 Hex-Zeichen). Nur grob geprüft, damit Tippfehler (Leerzeichen, zu kurz) früh auffallen. */
+/** Highrise-Bot-Token (meist 64 Hex-Zeichen). Nur grob geprüft, damit Tippfehler (Leerzeichen, zu kurz) früh auffallen.
+ *  Server: höchstens 200 Zeichen. */
 export function isBotToken(s: string) {
-  return /^[A-Za-z0-9_-]{32,}$/.test(s.trim());
+  return /^[A-Za-z0-9_-]{32,200}$/.test(s.trim());
+}
+
+/** Highrise-Benutzername wie der Server ihn annimmt (api_v1.ts normUsername): ohne @, klein, 1–40 Zeichen [a-z0-9._-]. */
+export function cleanUsername(s: string) {
+  return s.trim().toLowerCase().replace(/^@/, '');
+}
+export function isUsername(s: string) {
+  return /^[a-z0-9._-]{1,40}$/.test(cleanUsername(s));
 }
