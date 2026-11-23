@@ -351,7 +351,7 @@ export const content: Pack = {
 };
 
 /** Rechtliches der Webseite in der App-Sprache (die Seite liest ?lang=) */
-export const legalUrl = (page: 'terms' | 'privacy' | 'imprint') => `https://highrise-bots.com/${page}?lang=${getLang()}`;
+export const legalUrl = (page: 'terms' | 'privacy' | 'imprint') => `https://highrise-bots.com/${page}?app=1&lang=${getLang()}`;
 
 /** Alle Chat-Wörter je Bot-Art (+ Verknüpfungs-Helfer „bank“), mit „Wer darf das?“ – siehe commands.ts */
 export const chatWords = (): Record<CmdKind, Command[]> => commandsFor(getLang());

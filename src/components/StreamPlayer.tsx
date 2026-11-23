@@ -8,6 +8,13 @@ import { haptic } from '@/lib/ui';
 import { C, R, S, T } from '@/lib/theme';
 import { Txt } from './ui';
 
+// iOS spielt nur https-Streams (App Transport Security). Unser Radio-Server ist per https über
+// stream.highrise-bots.com erreichbar (Cloudflare-Tunnel) – alte http://…:8000-Adressen dorthin umbiegen.
+export function secureStreamUrl(url: string): string {
+  const m = /^http:\/\/(?:stream|radio)\.highrise-bots\.com(?::8000)?\/(.*)$/i.exec(url.trim());
+  return m ? `https://stream.highrise-bots.com/${m[1]}` : url.trim();
+}
+
 export function StreamPlayer({ url, title, sub, testID }: { url: string; title?: string; sub?: string; testID?: string }) {
   // Quelle erst beim Antippen setzen → nichts wird geladen, solange niemand zuhört
   const [on, setOn] = useState(false);
@@ -36,7 +43,8 @@ export function StreamPlayer({ url, title, sub, testID }: { url: string; title?:
     setFailed(false);
     try {
       // Cache-Buster wie die Webseite (neu verbinden statt alten Puffer abspielen)
-      player.replace({ uri: url + (url.includes('?') ? '&' : '?') + 't=' + Date.now() });
+      const src = secureStreamUrl(url);
+      player.replace({ uri: src + (src.includes('?') ? '&' : '?') + 't=' + Date.now() });
       player.play();
       setOn(true);
     } catch {
