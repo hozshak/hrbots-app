@@ -54,7 +54,7 @@ export default function BotPage() {
       testID={`page-${page}`}
     >
       {!valid || notFound ? (
-        <Empty emoji="🤷" title={t('bot.notFound')} action={t('common.back')} onAction={() => goBack()} />
+        <Empty emoji="🤷" title={t('bot.notFound')} action={t('common.back')} actionIcon="back" onAction={() => goBack()} />
       ) : q.isLoading ? (
         <Loading />
       ) : !d ? (

@@ -536,13 +536,13 @@ export function Loading() {
   );
 }
 
-export function Empty({ emoji, title, text, action, onAction, testID }: { emoji: string; title: string; text?: string; action?: string; onAction?: () => void; testID?: string }) {
+export function Empty({ emoji, title, text, action, onAction, actionIcon = 'add', testID }: { emoji: string; title: string; text?: string; action?: string; onAction?: () => void; actionIcon?: 'add' | 'back' | null; testID?: string }) {
   return (
     <View testID={testID} style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: S.lg, gap: S.md }}>
       <Txt style={{ fontSize: 56 }} maxFontSizeMultiplier={1.2}>{emoji}</Txt>
       <Txt style={[T.big, { textAlign: 'center' }]}>{title}</Txt>
       {text ? <Txt style={[T.callout, { textAlign: 'center' }]}>{text}</Txt> : null}
-      {action && onAction ? <Button label={action} icon="add" onPress={onAction} style={{ alignSelf: 'stretch', marginTop: S.sm }} /> : null}
+      {action && onAction ? <Button label={action} icon={actionIcon === 'add' ? 'add' : undefined} onPress={onAction} style={{ alignSelf: 'stretch', marginTop: S.sm }} /> : null}
     </View>
   );
 }

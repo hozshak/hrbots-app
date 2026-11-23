@@ -44,7 +44,7 @@ export default function BotMenu() {
       {q.isLoading ? (
         <Loading />
       ) : notFound ? (
-        <Empty emoji="🤷" title={t('bot.notFound')} action={t('common.back')} onAction={() => goBack()} />
+        <Empty emoji="🤷" title={t('bot.notFound')} action={t('common.back')} actionIcon="back" onAction={() => goBack()} />
       ) : !d ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : (
