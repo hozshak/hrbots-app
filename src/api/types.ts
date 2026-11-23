@@ -26,6 +26,8 @@ export interface Bot {
   /** true, wenn ein Bot-Token hinterlegt ist. Den Token selbst liefert die API nie. */
   bot_token_set: boolean;
   created_at: string | null;
+  /** Prozess-Nummer beim Bot-Server, nur wenn er läuft (Webseite: „PID nnn“) */
+  pid?: number | null;
   /** nur in der App: Zeitpunkt (ms), zu dem der Stand geholt wurde – für die laufende Restzeit */
   received_at?: number;
 }
@@ -46,6 +48,26 @@ export interface Me {
   user: User;
   limits: Record<BotKind, number>;
   counts: Record<BotKind, number>;
+}
+
+/** GET /auth/invite/:token (ohne Anmeldung) */
+export interface InviteInfo {
+  valid: true;
+  limits: Record<BotKind, number>;
+  /** 1 Begrüßer-Bot gratis (ohne Laufzeit) */
+  free_welcome: boolean;
+  /** Einladung kam aus Discord → Konto ist sofort mit Discord verbunden */
+  discord_linked: boolean;
+}
+/** POST /auth/register → 201 (wie Login, plus free_welcome) */
+export interface RegisterResult extends LoginResult {
+  free_welcome: boolean;
+}
+export interface RegisterInput {
+  invite: string;
+  username: string;
+  password: string;
+  accept_terms: true;
 }
 
 export type Facing = 'FrontRight' | 'FrontLeft' | 'BackRight' | 'BackLeft';
@@ -125,7 +147,7 @@ export interface MusicSettings extends CommonSettings, MusicExtra {
   /** leerer String, wenn nicht gesetzt */
   owner_username: string;
   roles: Record<MusicRole, string[]>;
-  /** gesperrte Nutzer (nur lesen; Bearbeiten gibt es nur auf der Webseite) */
+  /** gesperrte Nutzer (dürfen sich keine Lieder wünschen) */
   blocked: string[];
   announcements: { lines: string[]; interval_sec: number };
   max_song_minutes: number;
@@ -213,7 +235,8 @@ export const INPUT_LIMITS = {
 
 // =====================================================================================================================
 // Erweiterungen (alle Webseiten-Funktionen außer Kaufen/Mieten). Formen genau nach API.md (Stand 23.11.2026).
-// Gold-Felder, die der Server mitliefert (mod `vip.price`, `wallet`, music `gold_per_ticket`), zeigt die App bewusst NICHT an.
+// Gold-Preise, die der Server mitliefert (mod `vip.price`, music `gold_per_ticket`), zeigt die App bewusst NICHT an.
+// Das Gold *des Bots* (`wallet`) wird nur angezeigt (Aktivität), nichts davon lässt sich in der App ausgeben.
 // =====================================================================================================================
 
 /** Bot-Programm (Webseite: „Runtime“ js|python). In der App nur unter „Experten-Einstellungen“ als „Bot-Motor“. */
@@ -228,8 +251,11 @@ export interface TrackedUser {
 
 export interface ModWarn { username: string; count: number }
 export interface ModMute { id: number; username: string; muted_by: string | null; created_at: string | null }
+/** `reason` ist beim Server "" wenn leer */
 export interface ModReport { id: number; reporter: string; reported: string; reason: string | null; status: 'open' | 'closed'; created_at: string | null }
 export interface ModLogEntry { id: number; action: string; target: string | null; done_by: string | null; reason: string | null; created_at: string | null }
+/** Gold, das der Bot selbst im Raum hat (Trinkgeld der Gäste) – nur Anzeige, nichts zum Ausgeben */
+export interface BotWallet { gold: number | null; updated_at: string | null }
 export interface ModGuest { username: string; first_seen: string | null }
 /** VIP-Bereich wie gespeichert (Quadrat x1/z1–x2/z2) */
 export interface VipZone { id: number; name: string; x1: number; z1: number; x2: number; z2: number }
@@ -257,12 +283,17 @@ export interface ModExtra {
   /** `price` (Gold) wird NICHT angezeigt */
   vip?: { price?: number; safe_spot: { x: number; y: number; z: number } | null; zones: VipZone[] };
   outfits?: { rotate: boolean; interval_minutes: number; list: ModOutfit[] };
+  /** Gold des Bots im Raum (per !wallet aktualisiert) – nur Anzeige */
+  wallet?: BotWallet;
 }
 export interface MusicTicket { username: string; tickets: number }
 export interface MusicExtra {
   engine?: BotEngine;
+  /** beim echten Server immer ein Objekt */
   icecast?: { host: string; port: number; user: string; mount: string; password_set: boolean } | null;
   tickets?: MusicTicket[];
+  /** Gold des DJ-Bots im Raum (per -musicwallet aktualisiert) – nur Anzeige */
+  wallet?: BotWallet;
 }
 
 export interface MusicRecentCommand {
@@ -276,6 +307,7 @@ export interface MusicRecentCommand {
   executed_at?: string | null;
 }
 export interface AutoplayFile { name: string; size: number }
+export interface AutoplayList { files: AutoplayFile[]; max_files: number; max_bytes: number }
 
 /** GET /radio – eigene Radiosender (ohne Preise; Kaufen/Verlängern gibt es in der App nicht) */
 export interface RadioStation {
@@ -314,6 +346,8 @@ export interface SupportTicketDetail extends SupportTicket {
 /** Highrise-Konto verknüpfen (Code aus dem Bank-Raum) */
 export interface HighriseLink { linked: boolean; highrise_username: string | null }
 export interface DiscordInfo { linked: boolean; discord_username: string | null; required: boolean; verify_url: string; invite_url: string | null }
+/** POST /me/discord/web_link: Einmal-Link (5 min), öffnet im Browser ohne neues Anmelden die Discord-Seite */
+export interface DiscordWebLink { url: string; expires_at: string | null }
 
 /** GET /me/wallet – nur ansehen (kein Kaufen/Mieten in der App) */
 export interface WalletTx { amount: number; reason: string; created_at: string | null }
@@ -339,4 +373,11 @@ export const EXTRA_LIMITS = {
   cmdWord: 20,
   maxOpenTickets: 5,
   chatMessage: 2000,
+  outfitItemLen: 100,
+  /** Bild als Data-URL (Tickets, Chat): höchstens so viele Zeichen */
+  imageChars: 800000,
+  autoplayFiles: 20,
+  autoplayBytes: 10 * 1024 * 1024,
+  newUserMin: 2,
+  newUserMax: 32,
 } as const;

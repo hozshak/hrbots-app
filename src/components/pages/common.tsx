@@ -5,14 +5,15 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import {
-  bots, cleanUsername, isBotToken, isUsername, mod, music, parseRoom, welcome, FACINGS, INPUT_LIMITS, type Bot, type BotDetail, type BotEngine, type Facing,
-  type ModSettings, type MusicSettings, type TrackedUser, type UpdateBotInput, type WelcomeSettings,
+  bots, cleanUsername, isBotToken, isUsername, mod, music, parseRoom, welcome, ApiError, EXTRA_LIMITS, FACINGS, INPUT_LIMITS, type Bot, type BotDetail,
+  type BotEngine, type Facing, type ModSettings, type MusicSettings, type TrackedUser, type UpdateBotInput, type UploadFile, type WelcomeSettings,
 } from '@/api';
+import { pickMp3, PickError } from '@/lib/media';
 import { keys, powerBot, putBot, queryClient, useNow } from '@/lib/query';
 import { fileSize, relTime, shortDate } from '@/lib/format';
 import { errorText, t, type Key } from '@/lib/i18n';
 import { content, CREATE_HIGHRISE } from '@/lib/content';
-import { confirm, haptic, openUrl } from '@/lib/ui';
+import { confirm, haptic, openRoom, openUrl } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { useSession } from '@/lib/session';
 import { C, mono, R, S, T } from '@/lib/theme';
@@ -171,6 +172,9 @@ export function HelpPage({ d }: { d: BotDetail }) {
       <Expandable title={content.guides.token.title} emoji="🔑"><GuideSteps guide="token" /></Expandable>
       {d.bot.kind !== 'music' ? <Expandable title={content.guides.messages.title} emoji="👋"><GuideSteps guide="messages" /></Expandable> : null}
       {d.bot.kind === 'mod' ? <Expandable title={content.guides.vipzone.title} emoji="💎"><GuideSteps guide="vipzone" /></Expandable> : null}
+      {d.bot.kind === 'music' ? <Expandable title={content.guides.djSongs.title} emoji="💿"><GuideSteps guide="djSongs" /></Expandable> : null}
+      {d.bot.kind === 'music' ? <Expandable title={content.guides.radio.title} emoji="📻"><GuideSteps guide="radio" /></Expandable> : null}
+      <Expandable title={content.guides.startStop.title} emoji="⏯️"><GuideSteps guide="startStop" /></Expandable>
       <Button label={t('help.writeUs')} emoji="💌" variant="secondary" onPress={() => router.push({ pathname: '/tickets/new', params: { bot: `${d.bot.kind}:${d.bot.id}` } })} />
     </>
   );
@@ -211,7 +215,7 @@ function RoomEditor({ bot }: { bot: Bot }) {
         right={<PasteButton onPaste={async () => { const v = await pasteText(); if (v) setRoom(v); else toast(t('wiz.clipEmpty')); }} />}
       />
       {changed && check.ok ? <Button label={t('common.save')} small onPress={() => save('room', { room: room.trim() })} loading={busy === 'room'} testID="save-room" /> : null}
-      <Button label={t('expert.openRoom')} small variant="secondary" emoji="🚪" onPress={() => openUrl(bot.room_url || `https://high.rs/room?id=${bot.room_id}`)} />
+      <Button label={t('expert.openRoom')} small variant="secondary" emoji="🚪" onPress={() => openRoom(bot.room_url || `https://high.rs/room?id=${bot.room_id}`)} />
       <Txt style={T.sub}>{t('expert.restartHint')}</Txt>
       <HelpBits guide="roomLink" />
     </View>
@@ -324,9 +328,12 @@ function Logs({ bot }: { bot: Bot }) {
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   const lines = [...(q.data ?? [])].reverse().slice(0, 200);
-  if (!lines.length) return <Txt style={T.sub}>{t('expert.logsEmpty')}</Txt>;
+  // Webseite: „PID nnn“ beim laufenden Bot
+  const pid = bot.pid ? <Txt style={T.caption} selectable>{t('expert.pid', { pid: bot.pid })}</Txt> : null;
+  if (!lines.length) return <View style={{ gap: S.sm }}>{pid}<Txt style={T.sub}>{t('expert.logsEmpty')}</Txt></View>;
   return (
     <View style={{ backgroundColor: '#000', borderRadius: R.sm, padding: S.md, gap: 6, direction: 'ltr' }}>
+      {pid}
       <Txt style={T.caption}>{t('expert.logsNewest')}</Txt>
       {lines.map((l, i) => (
         <Txt key={i} selectable style={{ fontFamily: mono, fontSize: 12, lineHeight: 17, textAlign: 'left', color: /\bERROR\b|\bFATAL\b/i.test(l) ? C.red : /\bWARN/i.test(l) ? C.yellow : C.text2 }}>{l}</Txt>
@@ -378,13 +385,16 @@ function OutfitCodes({ d }: { d: BotDetail }) {
   const [name, setName] = useState('');
   const [items, setItems] = useState('');
   const list = items.split('\n').map((l) => l.trim()).filter(Boolean);
+  // Server: 1–50 Teile, je ≤ 100 Zeichen
+  const tooMany = list.length > EXTRA_LIMITS.outfitItems || list.some((l) => l.length > EXTRA_LIMITS.outfitItemLen);
   return (
     <View style={{ gap: S.sm }}>
       <Txt style={T.sub}>{t('expert.outfitHint')}</Txt>
       <AddPanel label={t('look.add')} open={open} onOpen={() => setOpen(true)} onClose={() => setOpen(false)} testID="outfit-add">
         <Field label={t('look.name')} value={name} onChangeText={setName} maxLength={40} placeholder="Party" />
-        <Field label={t('expert.outfitItems')} value={items} onChangeText={setItems} multiline autoCapitalize="none" placeholder={'shirt-f_punklace\nbody-flesh:65'} style={{ direction: 'ltr' }} />
-        <Button label={t('common.add')} icon="add" disabled={!list.length} loading={busy}
+        <Field label={t('expert.outfitItems')} value={items} onChangeText={setItems} multiline autoCapitalize="none" placeholder={'shirt-f_punklace\nbody-flesh:65'} style={{ direction: 'ltr' }}
+          error={tooMany ? t('expert.outfitTooMany') : null} />
+        <Button label={t('common.add')} icon="add" disabled={!list.length || tooMany} loading={busy}
           onPress={async () => { if (await run(() => mod.addOutfit(d.bot.id, name.trim() || 'Outfit', list))) { setName(''); setItems(''); setOpen(false); } }} />
       </AddPanel>
     </View>
@@ -441,18 +451,49 @@ function MusicExpert({ d }: { d: BotDetail }) {
 
 function AutoplayFiles({ d }: { d: BotDetail }) {
   const id = d.bot.id;
-  const q = useQuery({ queryKey: keys.extra('autoplay', 'music', id), queryFn: () => music.autoplayFiles(id) });
-  const { run } = useBotChange('music', id, [keys.extra('autoplay', 'music', id)]);
+  const akey = keys.extra('autoplay', 'music', id);
+  const q = useQuery({ queryKey: akey, queryFn: () => music.autoplay(id) });
+  const { run } = useBotChange('music', id, [akey]);
+  const [uploading, setUploading] = useState(false);
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
-  const files = q.data ?? [];
+  const files = q.data?.files ?? [];
+  const max = q.data?.max_files ?? EXTRA_LIMITS.autoplayFiles;
+  const full = files.length >= max;
+  // wie das Upload-Formular der Webseite: nur .mp3, 1 B–10 MB, höchstens 20 Lieder
+  const add = async () => {
+    if (full) return toast(t('expert.autoplayFull'), 'info');
+    let file: UploadFile | null;
+    try {
+      file = await pickMp3();
+    } catch (e) {
+      haptic.error();
+      return toast(e instanceof PickError && e.reason === 'too_big' ? t('expert.autoplayTooBig') : t('expert.autoplayNotMp3'), 'error');
+    }
+    if (!file) return;
+    setUploading(true);
+    try {
+      await music.uploadAutoplay(id, file);
+      haptic.success();
+      toast(t('expert.autoplayAdded'), 'success');
+      await queryClient.invalidateQueries({ queryKey: akey });
+    } catch (e) {
+      haptic.error();
+      toast(e instanceof ApiError && e.code === 'limit_reached' ? t('expert.autoplayFull') : errorText(e), 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
   return (
     <View style={{ gap: S.sm }}>
       <Txt style={T.sub}>{t('expert.autoplayHint')}</Txt>
+      <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>💿 {t('expert.autoplayCount', { n: files.length, max })}</Txt>
       {files.length === 0 ? <Txt style={T.sub}>{t('expert.autoplayEmpty')}</Txt> : null}
       {files.map((f) => (
         <ListItem key={f.name} emoji="🎵" title={f.name} sub={fileSize(f.size)} onDelete={async () => { if (await askDelete(f.name)) run(() => music.removeAutoplayFile(id, f.name)); }} />
       ))}
+      <Button label={uploading ? t('expert.autoplayUploading') : t('expert.autoplayAdd')} emoji="➕" loading={uploading} disabled={full} onPress={add} testID="autoplay-add" />
+      {!(d.settings as MusicSettings).autoplay && files.length ? <Note emoji="🔁" text={t('expert.autoplayOff')} /> : null}
     </View>
   );
 }

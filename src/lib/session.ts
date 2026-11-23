@@ -2,8 +2,10 @@
 import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
-import { account, auth, loadToken, saveToken, setErrorHooks, ApiError, type User } from '@/api';
+import * as WebBrowser from 'expo-web-browser';
+import { account, auth, loadToken, saveToken, setErrorHooks, ApiError, SITE, type RegisterInput, type User } from '@/api';
 import { queryClient } from './query';
+import { getLang } from './i18n';
 
 type State = { phase: 'booting' | 'out' | 'in'; user: User | null };
 let state: State = { phase: 'booting', user: null };
@@ -51,11 +53,46 @@ export async function boot() {
   }
 }
 
+const deviceName = () => (Platform.OS === 'web' ? 'HR Bots (web)' : `HR Bots (${Application.applicationName ?? 'iPhone'})`);
+
 export async function signIn(username: string, password: string) {
-  const deviceName = Platform.OS === 'web' ? 'HR Bots (web)' : `HR Bots (${Application.applicationName ?? 'iPhone'})`;
-  const user = await auth.login(username.trim(), password, deviceName);
+  const user = await auth.login(username.trim(), password, deviceName());
   queryClient.clear();
   set({ phase: 'in', user });
+}
+
+/** Konto mit Einladung anlegen und gleich angemeldet sein */
+export async function signUp(input: RegisterInput) {
+  const r = await auth.register(input, deviceName());
+  queryClient.clear();
+  set({ phase: 'in', user: r.user });
+  return r;
+}
+
+/**
+ * Discord verbinden: Einmal-Link holen (Browser ist dann schon angemeldet), im In-App-Browser öffnen und nach dem
+ * Schließen den Stand neu laden. Klappt der Einmal-Link nicht, die normale Seite (dort einmal anmelden).
+ * Liefert true, wenn Discord jetzt verbunden ist.
+ */
+export async function connectDiscord(): Promise<boolean> {
+  let url: string | null = null;
+  try {
+    url = (await account.discordWebLink(getLang())).url;
+  } catch {
+    try {
+      url = (await account.discord()).verify_url;
+    } catch {}
+  }
+  try {
+    await WebBrowser.openBrowserAsync(url || `${SITE}/verify`, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+  } catch {}
+  try {
+    const me = await refreshMe();
+    queryClient.invalidateQueries({ queryKey: ['discord'] });
+    return me.user.discord_linked;
+  } catch {
+    return false;
+  }
 }
 
 /** /me neu laden, z. B. nach dem Verknüpfen von Discord */

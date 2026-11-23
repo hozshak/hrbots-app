@@ -10,6 +10,9 @@
 //   Bot „Chill Radio“               → 1. Start: 502 agent_unreachable, 2. Start: stürzt ab (Beheben-Blatt), 3. klappt
 //   Raum-ID 000000000000000000000000 → 400 invalid_room
 //   Neu angelegte Bots bekommen im Mock 1 Stunde Laufzeit (echter Server: 0, außer Gratis-Bot), damit Start testbar ist.
+//   Einladungen: DEMO-INVITE-1234 (1/1/1 + Gratis-Begrüßer, ohne Discord), DISCORD-INVITE-1234 (mit Discord); einmal benutzbar.
+//   Neu registrierte Konten haben kein Discord, bis „Discord verbinden“ (POST /me/discord/web_link) getippt wurde.
+//   Autoplay-Upload: der Mock bekommt nur Name/Größe ({__file}); > 10 MB / kein .mp3 / 20 Lieder → Fehler wie der Server.
 import { ApiError, type Handler, type Method } from './transport';
 import type {
   BannedAction, Bot, BotKind, BotStatus, Facing, MinRole, ModSettings, MusicSettings, Position, WelcomeSettings,
@@ -63,9 +66,23 @@ function logLines(name: string): string[] {
   ];
 }
 
-const db: { bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string, { event: string; username: string; created_at: string }[]> } = {
+const db: {
+  bots: MockBot[]; deletedUsers: Set<string>; presence: Record<string, { event: string; username: string; created_at: string }[]>;
+  /** im „Browser“ mit Discord verbunden (nach POST /me/discord/web_link) */
+  discordLinked: Set<string>;
+  /** in der App registrierte Namen (klein) */
+  registered: Set<string>;
+  /** Einladungen: Code → Kontingent; benutzt = gelöscht */
+  invites: Record<string, { limits: Record<BotKind, number>; free_welcome: boolean; discord: boolean }>;
+} = {
   deletedUsers: new Set(),
   presence: {},
+  discordLinked: new Set(),
+  registered: new Set(),
+  invites: {
+    'DEMO-INVITE-1234': { limits: { welcome: 1, mod: 1, music: 1 }, free_welcome: true, discord: false },
+    'DISCORD-INVITE-1234': { limits: { welcome: 2, mod: 1, music: 0 }, free_welcome: false, discord: true },
+  },
   bots: [
     {
       kind: 'welcome', id: 4, name: 'Lobby Greeter', room_id: '64f1a2b3c4d5e6f708192a3b',
@@ -205,7 +222,8 @@ const acct = {
     },
   ] as SupportTicketDetail[],
   replies: {
-    12: [{ id: 1, author: 'admin', author_name: 'Team', body: 'Hi! Please give the bot Designer rights in your room, then turn it on again.', image: null, created_at: ago(60 * 2) }],
+    // Admin-Antwort mit Bild (wie ein Screenshot vom Team) – zeigt die Bild-Anzeige im Verlauf
+    12: [{ id: 1, author: 'admin', author_name: 'Team', body: 'Hi! Please give the bot Designer rights in your room, then turn it on again.', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', created_at: ago(60 * 2) }],
   } as Record<number, SupportReply[]>,
 };
 let nextTicket = 13;
@@ -240,6 +258,7 @@ function publicBot(b: MockBot): Bot {
   return {
     kind: b.kind, id: b.id, name: b.name, room_id: b.room_id, room_url: b.room_url ?? null, status: b.status,
     runtime: { ...b.runtime }, bot_token_set: b.bot_token_set, created_at: b.created_at,
+    pid: b.status === 'running' ? 170800 + b.id : null,
   };
 }
 
@@ -257,11 +276,16 @@ function presenceFor(b: MockBot) {
   return db.presence[key];
 }
 
+/** Testnamen ohne Discord: „nodiscord“ und alle in der App registrierten (bis „im Browser verbunden“) */
+const hasDiscord = (username: string) => {
+  const u = username.toLowerCase();
+  return db.discordLinked.has(u) || (u !== 'nodiscord' && !db.registered.has(u));
+};
 function userFromToken(token: string | null) {
   if (!token || !token.startsWith('mock-')) fail(401, 'unauthorized', 'Missing or invalid bearer token');
   const username = decodeURIComponent(token!.slice(5));
   if (db.deletedUsers.has(username.toLowerCase())) fail(401, 'unauthorized', 'Missing or invalid bearer token');
-  return { id: 1, username, discord_linked: username.toLowerCase() !== 'nodiscord' };
+  return { id: 1, username, discord_linked: hasDiscord(username) };
 }
 
 const BOT_LIMITS: Record<BotKind, number> = { welcome: 3, mod: 2, music: 2 };
@@ -317,13 +341,13 @@ function intInRange(v: unknown, key: string, min: number, max: number): number {
 }
 const message = (b: Body) => reqStr(b, 'message', L.message);
 
-/** wie parseRoomInput() auf dem Server: 24-Hex oder high.rs/highrise.game-Link mit ?id= / ownedRoomId= */
+/** wie parseRoomInput() auf dem Server: 24-Hex oder high.rs/highrise.game-Link mit ?id= / ownedRoomId= / /room/<id> */
 function parseRoomInput(input: string): { room_id: string; room_url: string | null } | null {
   const val = input.trim();
   if (!val) return null;
   if (/^[a-f0-9]{24}$/i.test(val)) return { room_id: val, room_url: null };
   if (val.includes('high.rs') || val.includes('highrise.game')) {
-    const m = val.match(/[?&]ownedRoomId=([a-f0-9]{24})/i) || val.match(/[?&]id=([a-f0-9]{24})/i);
+    const m = val.match(/[?&]ownedRoomId=([a-f0-9]{24})/i) || val.match(/[?&]id=([a-f0-9]{24})/i) || val.match(/\/rooms?\/([a-f0-9]{24})(?![a-f0-9])/i);
     if (m) return { room_id: m[1], room_url: val };
   }
   return null;
@@ -384,11 +408,41 @@ function botSettingsFor(kind: BotKind, owner: string, msgs: string[]): AnySettin
       outfits: { rotate: false, interval_minutes: 10, list: [] },
     };
   }
+  // wie der Server: jeder neue DJ bekommt ein inklusives Radio (radio.highrise-bots.com, Hörer-Link stream.…)
+  const mount = `mount_${Math.random().toString(16).slice(2, 10)}`;
   return {
     position, engine: 'js', owner_username: owner, roles: { mod: [], dj: [], vip: [] }, blocked: [], tickets: [],
     announcements: { lines: [], interval_sec: 300 }, max_song_minutes: 120, autoplay: false,
-    stream_url: `https://radio.highrise-bots.com/mount_${Math.random().toString(16).slice(2, 10)}`, icecast_password_set: true,
-  };
+    stream_url: `https://stream.highrise-bots.com/${mount}`, icecast_password_set: true,
+    icecast: { host: 'radio.highrise-bots.com', port: 8000, user: 'source', mount, password_set: true },
+    gold_per_ticket: 3.3, wallet: { gold: null, updated_at: null },
+  } as MusicSettings;
+}
+
+/** „läuft gerade?“ wie die Icecast-Statistik: live, wenn der verbundene DJ läuft */
+function radioStatus(st: RadioStation) {
+  const live = st.active && db.bots.some((b) => b.kind === 'music' && b.id === st.last_synced_bot_id && b.status === 'running');
+  return { live, listeners: live ? 3 : null };
+}
+
+/** Bild wie optImage() auf dem Server: Data-URL png/jpeg/gif/webp, ≤ 800 000 Zeichen */
+function optImage(body: Body): string | null {
+  const v = body.image;
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') fail(400, 'invalid_input', 'image must be a string');
+  if (v.length > 800000) fail(400, 'invalid_input', 'image too large (max 500 KB)');
+  if (!/^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=\s]+$/.test(v)) fail(400, 'invalid_input', 'image must be a base64 data URL (png, jpeg, gif, webp)');
+  return v;
+}
+
+/** inklusives Radio zu einem neuen DJ-Bot (wie api_v1.ts POST /bots, kind music) */
+function bundledRadio(b: MockBot) {
+  const ic = mus(b).icecast!;
+  acct.radios.unshift({
+    id: nextSub++, name: `🎙️ ${b.name}`, mount: ic.mount, stream_url: mus(b).stream_url,
+    source: { host: ic.host, port: ic.port, mount: ic.mount, user: 'source', password_set: true },
+    bundled_bot_id: b.id, last_synced_bot_id: b.id, active: true, unlimited: true, expires_at: null, deletable: false, created_at: iso(now()),
+  });
 }
 
 /** Sortierung wie die SQL-Abfragen in botSettings() */
@@ -408,12 +462,19 @@ const r = (s: string) => new RegExp(`^${s}$`);
 
 const routes: Route[] = [
   ['POST', /^\/auth\/logout$/, () => ({ ok: true })],
-  ['GET', /^\/me$/, (_m, _b, u) => ({ user: { id: 1, username: u.username, discord_linked: u.username.toLowerCase() !== 'nodiscord' }, limits: BOT_LIMITS, counts: counts() })],
+  ['GET', /^\/me$/, (_m, _b, u) => ({ user: { id: 1, username: u.username, discord_linked: hasDiscord(u.username) }, limits: BOT_LIMITS, counts: counts() })],
   ['POST', /^\/me\/delete$/, (_m, body, u) => {
     if (typeof body.password !== 'string' || !body.password) fail(400, 'missing_fields', 'password is required');
+    if (body.password.length > 200) fail(400, 'invalid_input', 'password too long');
     if (body.password === 'wrong') fail(401, 'invalid_credentials', 'Wrong password');
+    // wie der Server: Bots, Tickets, Radios, Wallet + Verknüpfung weg, Konto anonymisiert
     db.deletedUsers.add(u.username.toLowerCase());
     db.bots = [];
+    acct.tickets = [];
+    acct.replies = {};
+    acct.radios = [];
+    acct.wallet = { gold_balance: 0, transactions: [] };
+    acct.highrise = { linked: false, highrise_username: null };
     return { ok: true };
   }],
   ['GET', /^\/bots$/, () => ({ bots: (['welcome', 'mod', 'music'] as BotKind[]).flatMap((k) => db.bots.filter((b) => b.kind === k).sort((a, c) => c.id - a.id).map(publicBot)) })],
@@ -445,6 +506,7 @@ const routes: Route[] = [
     };
     addLog(b, 'INFO', 'Bot created');
     db.bots.push(b);
+    if (kind === 'music') bundledRadio(b);
     return { bot: publicBot(b) };
   }],
   ['GET', r(`\\/bots\\/${KB}`), (m) => {
@@ -508,6 +570,8 @@ const routes: Route[] = [
   ['DELETE', r(`\\/bots\\/${KB}`), (m) => {
     const b = findBot(m[1], m[2]);
     db.bots = db.bots.filter((x) => x !== b);
+    // wie deleteBotStatements: das inklusive Radio eines DJ-Bots geht mit
+    if (b.kind === 'music') acct.radios = acct.radios.filter((st) => st.bundled_bot_id !== b.id);
     return { ok: true };
   }],
   ['POST', r(`\\/bots\\/${KB}\\/(start|stop|restart)`), (m) => power(findBot(m[1], m[2]), m[3] as 'start' | 'stop' | 'restart')],
@@ -667,7 +731,7 @@ const routes: Route[] = [
     s.autoplay = autoplay;
     return { max_song_minutes: minutes, autoplay };
   }],
-  ['POST', /^\/bots\/music\/(\d+)\/command$/, (m, body) => {
+  ['POST', /^\/bots\/music\/(\d+)\/command$/, (m, body, u) => {
     const b = findBot('music', m[1]);
     const a = body.action;
     const actions = ['play', 'play_top', 'skip', 'clearqueue', 'volup', 'voldown', 'autoplay_on', 'autoplay_off'];
@@ -677,7 +741,11 @@ const routes: Route[] = [
     tick(b);
     if (b.status !== 'running') fail(409, 'bot_not_running', 'Bot is not running');
     addLog(b, 'INFO', `Live command: ${a}${query ? ` "${query}"` : ''}`);
-    return { ok: true, cmd_id: nextSub++ };
+    // wie der Server: landet in music_commands_queue (requested_by = Kontoname), der Agent arbeitet ihn kurz danach ab
+    const cmd: MusicRecentCommand = { id: nextSub++, action: a, args: query ? { query } : {}, requested_by: u.username, status: 'pending', result: null, created_at: iso(now()), executed_at: null };
+    b.recent = [cmd, ...(b.recent ?? [])].slice(0, 15);
+    setTimeout(() => { cmd.status = 'done'; cmd.executed_at = iso(now()); cmd.result = query ? 'Added to queue' : 'OK'; }, 3000);
+    return { ok: true, cmd_id: cmd.id };
   }],
 
   // ===== Erweiterungen (API.md, Stand 23.11.2026) =====
@@ -857,22 +925,44 @@ const routes: Route[] = [
   ['GET', /^\/bots\/music\/(\d+)\/commands$/, (m) => ({ commands: findBot('music', m[1]).recent ?? [] })],
   ['PUT', /^\/bots\/music\/(\d+)\/icecast$/, (m, body) => {
     const s = mus(findBot('music', m[1]));
-    const host = reqStr(body, 'host', 200, 'missing_fields');
-    const user = reqStr(body, 'user', 100, 'missing_fields');
-    const mount = reqStr(body, 'mount', 200, 'missing_fields').replace(/^\//, '');
+    const host = reqStr(body, 'host', 200);
     const port = intInRange(body.port, 'port', 1, 65535);
+    const user = reqStr(body, 'user', 100);
+    const mount = reqStr(body, 'mount', 200);
     const pw = optStr(body, 'password', 200);
-    if (!pw && !s.icecast?.password_set) fail(400, 'missing_fields', 'password is required');
+    if (!pw && !s.icecast?.password_set) fail(400, 'missing_fields', 'password is required (no password stored yet)');
+    // wie der Server: neuer Server (Host/Port/Mount) → Hörer-Link neu (eigenes Radio der Seite → https://stream…, sonst abgeleitet)
+    const old = s.icecast;
+    const changed = !old || old.host !== host || old.port !== port || old.mount !== mount;
+    if (changed) {
+      const m2 = mount.replace(/^\/+/, '');
+      s.stream_url = host === 'radio.highrise-bots.com' ? `https://stream.highrise-bots.com/${m2}` : `http://${host}${port === 80 ? '' : `:${port}`}/${m2}`;
+    }
     s.icecast = { host, port, user, mount, password_set: true };
     s.icecast_password_set = true;
-    s.stream_url = `http://${host}${port === 80 ? '' : `:${port}`}/${mount}`;
     return { icecast: s.icecast, stream_url: s.stream_url };
   }],
   ['GET', /^\/bots\/music\/(\d+)\/autoplay$/, (m) => ({ files: findBot('music', m[1]).autoplay ?? [], max_files: 20, max_bytes: 10485760 })],
+  // Upload: der Mock bekommt statt der Datei nur {__file: {name, size, type}} (transport.upload)
+  ['POST', /^\/bots\/music\/(\d+)\/autoplay$/, (m, body) => {
+    const b = findBot('music', m[1]);
+    const f = body.__file as { name?: string; size?: number } | undefined;
+    if (!f || !f.name) fail(400, 'missing_fields', 'file is required');
+    const name = String(f!.name).trim();
+    if (!name || name.length > 200 || /[\/\\]/.test(name)) fail(400, 'invalid_input', 'filename must be 1-200 characters without slashes');
+    if (!name.toLowerCase().endsWith('.mp3')) fail(400, 'invalid_input', 'Only .mp3 allowed');
+    const size = Number(f!.size) || 0;
+    if (size <= 0 || size > 10485760) fail(400, 'invalid_input', 'File size must be 1B - 10MB');
+    const list = b.autoplay ?? [];
+    if (list.length >= 20) fail(403, 'limit_reached', 'Folder full (max 20 songs)');
+    b.autoplay = [...list.filter((x) => x.name !== name), { name, size }];
+    return { ok: true, file: { name, size } };
+  }],
   ['DELETE', /^\/bots\/music\/(\d+)\/autoplay\/([^/]+)$/, (m) => {
     const b = findBot('music', m[1]);
     const name = decodeURIComponent(m[2]);
-    if (!name.toLowerCase().endsWith('.mp3')) fail(400, 'invalid_input', 'only .mp3');
+    if (!name.toLowerCase().endsWith('.mp3')) fail(400, 'invalid_input', 'Only .mp3 allowed');
+    if (!(b.autoplay ?? []).some((f) => f.name === name)) fail(502, 'agent_error', 'file not found');
     b.autoplay = (b.autoplay ?? []).filter((f) => f.name !== name);
     return { ok: true };
   }],
@@ -899,8 +989,13 @@ const routes: Route[] = [
     return { ok: true, highrise_username: 'bbos', claimed_gold: 0 };
   }],
   ['GET', /^\/me\/discord$/, (_m, _b, u) => {
-    const linked = u.username.toLowerCase() !== 'nodiscord';
-    return { linked, discord_username: linked ? `${u.username.toLowerCase()}#discord` : null, required: true, verify_url: 'https://highrise-bots.com/verify', invite_url: null };
+    const linked = hasDiscord(u.username);
+    return { linked, discord_username: linked ? `${u.username.toLowerCase()}#discord` : null, required: true, verify_url: 'https://highrise-bots.com/verify', invite_url: 'https://discord.gg/kjbNyzPeKW' };
+  }],
+  // Einmal-Link; im Mock gilt Discord danach als „im Browser verbunden“
+  ['POST', /^\/me\/discord\/web_link$/, (_m, _b, u) => {
+    db.discordLinked.add(u.username.toLowerCase());
+    return { url: 'https://highrise-bots.com/verify', expires_at: iso(now() + 5 * 60000) };
   }],
   ['GET', /^\/me\/wallet$/, () => ({
     gold_balance: acct.wallet.gold_balance,
@@ -909,19 +1004,21 @@ const routes: Route[] = [
     transactions: acct.wallet.transactions.slice(0, 20),
   } satisfies Wallet)],
   // ---- Radio ----
-  ['GET', /^\/radio$/, () => ({ stations: acct.radios })],
-  ['GET', /^\/radio\/(\d+)$/, (m) => ({ station: acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found') })],
-  ['GET', /^\/radio\/(\d+)\/status$/, (m) => {
+  ['GET', /^\/radio$/, () => ({ stations: acct.radios.map((st) => ({ ...st, status: radioStatus(st) })) })],
+  ['GET', /^\/radio\/(\d+)$/, (m) => {
     const st = acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found');
-    const live = st.active && db.bots.some((b) => b.kind === 'music' && b.id === st.last_synced_bot_id && b.status === 'running');
-    return { live, listeners: live ? 3 : null };
+    return { station: { ...st, status: radioStatus(st) } };
   }],
+  ['GET', /^\/radio\/(\d+)\/status$/, (m) => radioStatus(acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found'))],
   ['POST', /^\/radio\/(\d+)\/sync$/, (m, body) => {
     const st = acct.radios.find((r) => String(r.id) === m[1]) ?? fail(404, 'not_found', 'Station not found');
-    if (typeof body.bot_id !== 'number') fail(400, 'invalid_input', 'bot_id must be a number');
-    const b = findBot('music', String(body.bot_id));
+    if (typeof body.bot_id !== 'number' || !Number.isSafeInteger(body.bot_id) || body.bot_id <= 0) fail(400, 'invalid_input', 'bot_id must be a positive integer');
+    const b = db.bots.find((x) => x.kind === 'music' && x.id === body.bot_id) ?? fail(404, 'not_found', 'Music bot not found');
     st.last_synced_bot_id = b.id;
+    // wie der Server: Zugangsdaten + Hörer-Link in den Bot
     mus(b).stream_url = st.stream_url;
+    mus(b).icecast = { host: st.source.host, port: st.source.port, user: st.source.user, mount: st.mount, password_set: true };
+    mus(b).icecast_password_set = true;
     return { ok: true, bot_id: b.id };
   }],
   ['DELETE', /^\/radio\/(\d+)$/, (m) => {
@@ -940,14 +1037,16 @@ const routes: Route[] = [
     const subject = reqStr(body, 'subject', 200, 'missing_fields');
     const text = reqStr(body, 'body', 4000, 'missing_fields');
     if (text.length < 10) fail(400, 'invalid_input', 'body must be at least 10 characters');
-    if (acct.tickets.filter((t) => t.status !== 'closed').length >= 5) fail(403, 'limit_reached', 'Too many open tickets');
+    const image = optImage(body);
     let bot: SupportTicketDetail['bot'] = null;
-    if (body.bot_kind !== undefined) {
+    if (body.bot_kind !== undefined && body.bot_kind !== null) {
       if (body.bot_kind !== 'welcome' && body.bot_kind !== 'mod') fail(400, 'invalid_input', 'bot_kind must be welcome or mod');
+      if (typeof body.bot_id !== 'number' || !Number.isSafeInteger(body.bot_id) || body.bot_id <= 0) fail(400, 'invalid_input', 'bot_id must be a positive integer');
       const b = findBot(body.bot_kind, String(body.bot_id));
       bot = { kind: b.kind, id: b.id, name: b.name };
     }
-    const tk: SupportTicketDetail = { id: nextTicket++, subject, status: 'open', created_at: iso(now()), updated_at: iso(now()), body: text, bot, image: null };
+    if (acct.tickets.filter((t) => t.status !== 'closed').length >= 5) fail(403, 'limit_reached', 'You already have 5 open tickets');
+    const tk: SupportTicketDetail = { id: nextTicket++, subject, status: 'open', created_at: iso(now()), updated_at: iso(now()), body: text, bot, image };
     acct.tickets.push(tk);
     acct.replies[tk.id] = [];
     return { ticket: tk };
@@ -956,12 +1055,13 @@ const routes: Route[] = [
     const ticket = acct.tickets.find((t) => String(t.id) === m[1]) ?? fail(404, 'not_found', 'Ticket not found');
     return { ticket, replies: acct.replies[ticket.id] ?? [] };
   }],
-  ['POST', /^\/me\/tickets\/(\d+)\/replies$/, (m, body) => {
+  ['POST', /^\/me\/tickets\/(\d+)\/replies$/, (m, body, u) => {
     const tk = acct.tickets.find((t) => String(t.id) === m[1]) ?? fail(404, 'not_found', 'Ticket not found');
-    if (tk.status === 'closed') fail(409, 'ticket_closed', 'Ticket is closed');
     const text = reqStr(body, 'body', 4000, 'missing_fields');
     if (text.length < 2) fail(400, 'invalid_input', 'body must be at least 2 characters');
-    const reply: SupportReply = { id: nextSub++, author: 'user', author_name: null, body: text, image: null, created_at: iso(now()) };
+    const image = optImage(body);
+    if (tk.status === 'closed') fail(409, 'ticket_closed', 'This ticket is closed');
+    const reply: SupportReply = { id: nextSub++, author: 'user', author_name: u.username, body: text, image, created_at: iso(now()) };
     (acct.replies[tk.id] = acct.replies[tk.id] ?? []).push(reply);
     tk.status = 'open';
     tk.updated_at = iso(now());
@@ -969,10 +1069,23 @@ const routes: Route[] = [
   }],
   // ---- Hilfe-Chatbot ----
   ['POST', /^\/chat$/, (_m, body) => {
-    if (!Array.isArray(body.messages) || !body.messages.length) fail(400, 'missing_fields', 'messages required');
-    const last = String(body.messages[body.messages.length - 1]?.content ?? '').toLowerCase();
+    // Prüfungen wie api_v1_account.ts POST /chat
+    if (!Array.isArray(body.messages) || !body.messages.length) fail(400, 'invalid_input', 'messages must be a non-empty array');
+    if (body.messages.length > 50) fail(400, 'invalid_input', 'at most 50 messages');
+    for (const mm of body.messages as { role?: unknown; content?: unknown }[]) {
+      if (!mm || (mm.role !== 'user' && mm.role !== 'assistant') || typeof mm.content !== 'string') fail(400, 'invalid_input', 'each message must be {role: user|assistant, content: string}');
+      if ((mm.content as string).length > 2000) fail(400, 'invalid_input', 'message content must be at most 2000 characters');
+    }
+    const lastMsg = body.messages[body.messages.length - 1];
+    if (lastMsg.role !== 'user' || !String(lastMsg.content).trim()) fail(400, 'invalid_input', 'the last message must be a non-empty user message');
+    if (body.lang !== undefined && (typeof body.lang !== 'string' || !/^[a-z]{2}$/.test(body.lang))) fail(400, 'invalid_input', 'lang must be a 2-letter language code');
+    const image = optImage(body);
+    const last = String(lastMsg.content).toLowerCase();
     const de = body.lang === 'de';
     const ar = body.lang === 'ar';
+    if (image) {
+      return { reply: ar ? 'شكرًا على الصورة! يبدو أن البوت ليس لديه صلاحية Designer. 🙂' : de ? 'Danke für das Bild! Es sieht so aus, als hätte der Bot keine Designer-Rechte. 🙂' : 'Thanks for the picture! It looks like the bot has no Designer rights. 🙂', limit_reached: false };
+    }
     const reply = /designer|room|raum|غرف/.test(last)
       ? ar ? 'أعطِ البوت صلاحية Designer في غرفتك، ثم أطفئه وشغّله. 🙂' : de ? 'Gib dem Bot Designer-Rechte in deinem Raum und schalte ihn dann aus und wieder an. 🙂' : 'Give the bot Designer rights in your room, then turn it off and on again. 🙂'
       : ar ? 'أنا مساعد تجريبي. اسألني عن البوتات! 🤖' : de ? 'Ich bin ein Demo-Helfer. Frag mich zu deinen Bots! 🤖' : 'I am a demo helper. Ask me about your bots! 🤖';
@@ -994,12 +1107,41 @@ export const mockHandler: Handler = async (method, path, body, token) => {
     return {
       token: `mock-${encodeURIComponent(username)}`,
       expires_at: iso(now() + 180 * 86400_000),
-      user: { id: 1, username, discord_linked: username.toLowerCase() !== 'nodiscord' },
+      user: { id: 1, username, discord_linked: hasDiscord(username) },
+    };
+  }
+  // ---- ohne Token: Einladung prüfen / Registrieren (api_v1_public.ts). Test-Codes: DEMO-INVITE-1234, DISCORD-INVITE-1234 ----
+  const inv = method === 'GET' && path.match(/^\/auth\/invite\/([^/]+)$/);
+  if (inv) {
+    const i = db.invites[decodeURIComponent(inv[1])] ?? fail(404, 'invalid_invite', 'This invite link is invalid or has already been used');
+    return { valid: true, limits: i.limits, free_welcome: i.free_welcome, discord_linked: i.discord };
+  }
+  if (method === 'POST' && path === '/auth/register') {
+    if (typeof b.invite !== 'string' || typeof b.username !== 'string' || typeof b.password !== 'string' || !b.invite.trim() || !b.username.trim() || !b.password) {
+      fail(400, 'missing_fields', 'invite, username and password are required');
+    }
+    const username = String(b.username).trim();
+    if (!/^[A-Za-z0-9._-]{2,32}$/.test(username)) fail(400, 'invalid_input', 'username must be 2-32 characters: letters, numbers, . _ -');
+    if (b.password.length < 4 || b.password.length > 200) fail(400, 'invalid_input', 'password must be 4-200 characters');
+    if (b.accept_terms !== true) fail(400, 'invalid_input', 'accept_terms must be true (Terms of Service and Privacy Policy)');
+    const code = String(b.invite).trim();
+    const i = db.invites[code] ?? fail(404, 'invalid_invite', 'This invite link is invalid or has already been used');
+    const lower = username.toLowerCase();
+    if (['bbos', 'demo', 'admin', 'nodiscord'].includes(lower) || db.registered.has(lower)) fail(409, 'username_taken', 'This username is already taken');
+    delete db.invites[code];
+    db.registered.add(lower);
+    if (i.discord) db.discordLinked.add(lower);
+    db.deletedUsers.delete(lower);
+    return {
+      token: `mock-${encodeURIComponent(username)}`,
+      expires_at: iso(now() + 180 * 86400_000),
+      user: { id: 2, username, discord_linked: i.discord },
+      free_welcome: i.free_welcome,
     };
   }
   // Bearer-Pflicht für alles außer Login (auch Logout), dann Discord-Pflicht außer /me, /me/delete, /auth/*
   const u = userFromToken(token);
-  const exempt = path === '/me' || path === '/me/delete' || path === '/me/discord' || path.startsWith('/auth/');
+  const exempt = path === '/me' || path === '/me/delete' || path === '/me/discord' || path === '/me/discord/web_link' || path.startsWith('/auth/');
   if (!u.discord_linked && !exempt) fail(403, 'discord_required', 'Link your Discord account on the website first');
   for (const [m, re, fn] of routes) {
     if (m !== method) continue;

@@ -51,14 +51,14 @@ export default function Root() {
     const parts = segs as string[];
     const first = parts[0] ?? '';
     if (session.phase === 'out') {
-      if (first !== 'login' && first !== 'language') router.replace('/login');
+      if (first !== 'login' && first !== 'language' && first !== 'register') router.replace('/login');
       return;
     }
     if (session.user && !session.user.discord_linked) {
       if (!parts.some((p) => NO_DISCORD_OK.includes(p))) router.replace('/discord');
       return;
     }
-    if (first === 'login' || first === 'discord') router.replace('/');
+    if (first === 'login' || first === 'discord' || first === 'register') router.replace('/');
   }, [session.phase, session.user?.discord_linked, segs.join('/')]);
 
   if (!ready) {
@@ -77,6 +77,7 @@ export default function Root() {
           <View key={lang} style={{ flex: 1, backgroundColor: C.bg, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
               <Stack.Screen name="login" options={{ animation: 'fade' }} />
+              <Stack.Screen name="register" options={{ animation: 'fade' }} />
               <Stack.Screen name="discord" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="new" options={{ presentation: 'fullScreenModal' }} />

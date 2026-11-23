@@ -14,6 +14,7 @@ import { C, S, T } from '@/lib/theme';
 import { Button, Card, Choice, CodeChip, Empty, ErrorState, Loading, Screen, Txt } from '@/components/ui';
 import { Expandable } from '@/components/guide';
 import { askDelete } from '@/components/editors';
+import { StreamPlayer } from '@/components/StreamPlayer';
 
 function Station({ st }: { st: RadioStation }) {
   const status = useQuery({ queryKey: ['radio-status', st.id], queryFn: () => radio.status(st.id), placeholderData: st.status, refetchInterval: 15000, enabled: st.active });
@@ -49,6 +50,7 @@ function Station({ st }: { st: RadioStation }) {
       <Txt style={T.sub}>
         {st.bundled_bot_id ? t('radio.withBot') : st.expires_at && !st.unlimited ? (st.active ? t('radio.until', { date: shortDate(st.expires_at) }) : t('radio.ended', { date: shortDate(st.expires_at) })) : t('radio.always')}
       </Txt>
+      {st.active ? <StreamPlayer url={st.stream_url} sub={live ? undefined : t('radio.quiet')} testID={`radio-player-${st.id}`} /> : null}
       <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>🎧 {t('radio.listenLink')}</Txt>
       <CodeChip text={st.stream_url} />
       <Button label={t('common.copy')} small variant="secondary" emoji="📋" onPress={async () => { await Clipboard.setStringAsync(st.stream_url); toast(t('common.copied'), 'success'); }} />

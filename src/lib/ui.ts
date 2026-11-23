@@ -1,5 +1,5 @@
 // Kleine Helfer: Haptik, Bestätigungsdialog (auch im Browser), Links öffnen.
-import { Alert, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { t } from './i18n';
@@ -35,4 +35,10 @@ export function confirm(title: string, message: string, okLabel: string, destruc
 
 export function openUrl(url: string) {
   WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET }).catch(() => {});
+}
+
+/** Highrise-Raum-Link: über das System öffnen, damit die Highrise-App aufgeht (falls installiert), sonst Browser */
+export function openRoom(url: string) {
+  if (Platform.OS === 'web') return openUrl(url);
+  Linking.openURL(url).catch(() => openUrl(url));
 }

@@ -3,11 +3,14 @@
 // `content.x` liest immer die aktuelle Sprache (Getter), damit ein Sprachwechsel sofort wirkt.
 import type { BotKind } from '@/api';
 import { getLang, type Lang } from './i18n';
+import { commandsFor, type CmdKind, type Command } from './commands';
 
+export type { Command, CmdKind };
 export type Guide = { title: string; steps: string[] };
 export type Faq = { q: string; a: string; guide?: GuideKey };
-export type Command = { cmd: string; what: string };
-export type GuideKey = 'roomLink' | 'token' | 'designer' | 'messages' | 'link' | 'vipzone' | 'spot' | 'stand';
+export type GuideKey =
+  | 'roomLink' | 'token' | 'designer' | 'messages' | 'link' | 'vipzone' | 'spot' | 'stand'
+  | 'register' | 'newBot' | 'startStop' | 'password' | 'djSongs' | 'radio';
 
 export const CREATE_HIGHRISE = 'https://create.highrise.game';
 export const SUPPORT_DISCORD = 'https://discord.gg/kjbNyzPeKW';
@@ -25,7 +28,6 @@ type Pack = {
   botNames: Record<BotKind, string[]>;
   subjects: string[];
   faq: Faq[];
-  commands: Record<BotKind, Command[]>;
   fix: { designer: string; token: string; room: string };
 };
 
@@ -63,6 +65,30 @@ const en: Pack = {
       title: 'Move the bot the easy way',
       steps: ['📱 Go into your room in Highrise.', '🚶 Stand where the bot should stand.', '💬 Type the chat word below.', '✅ The bot walks to you.'],
     },
+    register: {
+      title: 'Make an account',
+      steps: ['💌 Get an invite link from our team (ask on Discord).', '👆 On the sign-in page tap “I have an invite”.', '📋 Paste the link and tap “Check invite”.', '🙂 Pick a name and a password.', '✅ Accept the rules and tap “Create account”.', '💬 Then connect Discord – the app shows you how.'],
+    },
+    newBot: {
+      title: 'Make a new bot',
+      steps: ['➕ On the Bots page tap “New”.', '🤖 Pick what the bot should do.', '🏷️ Give it a name.', '🔑 Paste the bot key from Highrise.', '🔗 Paste your room link.', '🚪 Let the bot into your room (Designer).', '✅ Done! The bot is saved and still off.'],
+    },
+    startStop: {
+      title: 'Turn a bot on and off',
+      steps: ['👆 Tap the big ON/OFF button on the bot.', '⏱️ After 1–2 seconds the bot is in your room.', '💤 Turn it off – the time left is kept.', '🔄 “Restart” (Expert settings) keeps the time too.'],
+    },
+    password: {
+      title: 'Change your password',
+      steps: ['🙂 Go to Account → Change password.', '🔒 Type your old password.', '🆕 Type the new one two times.', '✅ Other phones stay signed in.'],
+    },
+    djSongs: {
+      title: 'Add your own songs to the DJ',
+      steps: ['🎧 Open your DJ bot → Expert settings → My songs.', '➕ Tap “Add a song (.mp3)” and pick a song file.', '📏 Up to 20 songs, each up to 10 MB.', '🔁 Turn on “Keep playing” – the DJ plays them when nobody wishes a song.'],
+    },
+    radio: {
+      title: 'Your radio',
+      steps: ['📻 Every DJ bot comes with its own radio.', '🎧 Tap “Listen here” to hear it in the app.', '🔌 Under Account → My radios you can connect a radio to another DJ.', '🧰 “Details” has the data for music programs on a computer.'],
+    },
   },
   why: {
     kind: 'Each bot has one job. You can make more later.',
@@ -90,41 +116,15 @@ const en: Pack = {
     { q: 'What does “time left” mean?', a: 'It shows how long your bot can still be on.' },
     { q: 'How do I change the language?', a: 'Account → Language.' },
     { q: 'How do I delete my account?', a: 'Account → Delete account. You need your password. All your bots are deleted too.' },
+    { q: 'How do I get an account?', a: 'You need an invite from our team. Ask us on Discord. Then tap “I have an invite” on the sign-in page.', guide: 'register' },
+    { q: 'What is the difference between a greeter and a guard?', a: 'The greeter says hello to everyone who comes in. The guard keeps your room safe: warnings, bad words, VIP areas, places to jump to and more.' },
+    { q: 'Do I lose my settings when I change the room?', a: 'No. Messages, helpers and everything else stay. Change the room in Expert settings.' },
+    { q: 'How do I make someone a helper of my bot?', a: 'Open the bot → Helpers → Add. They can then use the chat words.' },
+    { q: 'My bot is off, but it still has time.', a: 'Someone turned it off. Turn it on again. Time only counts down while the bot is on.', guide: 'startStop' },
+    { q: 'How do I add my own songs to the DJ?', a: 'In the DJ’s Expert settings under “My songs”.', guide: 'djSongs' },
+    { q: 'How do I hear my radio?', a: 'Open your DJ → Music → “Listen here”. Or Account → My radios.', guide: 'radio' },
+    { q: 'How do I change my password?', a: 'Account → Change password.', guide: 'password' },
   ],
-  commands: {
-    welcome: [
-      { cmd: '-welcome @name text', what: 'A special hello for one person' },
-      { cmd: '-posuser @name', what: 'The bot goes to where this person stands' },
-      { cmd: '-stoppos @name', what: 'Stop that' },
-      { cmd: '-posbot 6 0 8', what: 'Send the bot to a spot' },
-    ],
-    mod: [
-      { cmd: '!help', what: 'Show all chat words' },
-      { cmd: '!warn @name', what: 'Give a warning' },
-      { cmd: '!mute @name / !unmute @name', what: 'Make someone quiet / talk again' },
-      { cmd: '!kick @name', what: 'Send someone out of the room' },
-      { cmd: '!ban @name / !unban @name', what: 'Block someone / let them back' },
-      { cmd: '!report @name reason', what: 'Tell the helpers about a problem' },
-      { cmd: '!go place', what: 'Jump to a place' },
-      { cmd: '!tp @name place', what: 'Send someone to a place' },
-      { cmd: '!setrole @name vip', what: 'Make someone admin, moderator or VIP' },
-      { cmd: '!addvipzone', what: 'Make a VIP area where you stand' },
-      { cmd: '!posbot', what: 'The bot comes to you' },
-      { cmd: '!dance 5', what: 'Let the bot dance' },
-    ],
-    music: [
-      { cmd: '-play song  (-p)', what: 'Add a song' },
-      { cmd: '-playtop song  (-pt)', what: 'Play a song next' },
-      { cmd: '-skip  (-s)', what: 'Skip the song' },
-      { cmd: '-queue  (-q)', what: 'Show the next songs' },
-      { cmd: '-np', what: 'Show the song now' },
-      { cmd: '-volup / -voldown', what: 'Louder / quieter' },
-      { cmd: '-clearqueue', what: 'Remove all next songs' },
-      { cmd: '!autoplay on / off', what: 'Keep playing when the list is empty' },
-      { cmd: '-add_dj @name', what: 'Make someone a DJ' },
-      { cmd: '-block @name / -unblock @name', what: 'Stop or allow song wishes' },
-    ],
-  },
   fix: {
     designer: 'The bot has no Designer rights in your room',
     token: 'The bot key is wrong or was deleted',
@@ -166,6 +166,30 @@ const de: Pack = {
       title: 'Bot ganz einfach bewegen',
       steps: ['📱 Geh in Highrise in deinen Raum.', '🚶 Stell dich dahin, wo der Bot stehen soll.', '💬 Schreib das Chat-Wort unten.', '✅ Der Bot läuft zu dir.'],
     },
+    register: {
+      title: 'Ein Konto machen',
+      steps: ['💌 Hol dir einen Einladungs-Link von unserem Team (frag auf Discord).', '👆 Tippe beim Anmelden auf „Ich habe eine Einladung“.', '📋 Füg den Link ein und tippe auf „Einladung prüfen“.', '🙂 Such dir einen Namen und ein Passwort aus.', '✅ Regeln annehmen und auf „Konto erstellen“ tippen.', '💬 Dann Discord verbinden – die App zeigt dir, wie.'],
+    },
+    newBot: {
+      title: 'Einen neuen Bot machen',
+      steps: ['➕ Tippe auf der Bots-Seite auf „Neu“.', '🤖 Such aus, was der Bot machen soll.', '🏷️ Gib ihm einen Namen.', '🔑 Füg den Bot-Schlüssel von Highrise ein.', '🔗 Füg deinen Raum-Link ein.', '🚪 Lass den Bot in deinen Raum (Designer).', '✅ Fertig! Der Bot ist gespeichert und noch aus.'],
+    },
+    startStop: {
+      title: 'Bot an- und ausschalten',
+      steps: ['👆 Tippe beim Bot auf den großen AN/AUS-Knopf.', '⏱️ Nach 1–2 Sekunden ist der Bot in deinem Raum.', '💤 Ausschalten – die übrige Zeit bleibt gespeichert.', '🔄 „Neu starten“ (Experten-Einstellungen) behält die Zeit auch.'],
+    },
+    password: {
+      title: 'Passwort ändern',
+      steps: ['🙂 Geh zu Konto → Passwort ändern.', '🔒 Tipp dein altes Passwort ein.', '🆕 Tipp das neue zweimal ein.', '✅ Andere Handys bleiben angemeldet.'],
+    },
+    djSongs: {
+      title: 'Eigene Lieder für den DJ',
+      steps: ['🎧 Öffne deinen DJ-Bot → Experten-Einstellungen → Meine Lieder.', '➕ Tippe auf „Lied hinzufügen (.mp3)“ und such eine Lied-Datei aus.', '📏 Bis zu 20 Lieder, je bis 10 MB.', '🔁 Schalte „Weiterspielen“ an – der DJ spielt sie, wenn sich niemand etwas wünscht.'],
+    },
+    radio: {
+      title: 'Dein Radio',
+      steps: ['📻 Jeder DJ-Bot hat sein eigenes Radio.', '🎧 Tippe auf „Hier anhören“, um es in der App zu hören.', '🔌 Unter Konto → Meine Radios kannst du ein Radio mit einem anderen DJ verbinden.', '🧰 Bei „Details“ stehen die Daten für Musikprogramme am Computer.'],
+    },
   },
   why: {
     kind: 'Jeder Bot hat eine Aufgabe. Du kannst später mehr machen.',
@@ -193,41 +217,15 @@ const de: Pack = {
     { q: 'Was heißt „Zeit übrig“?', a: 'So lange kann dein Bot noch an sein.' },
     { q: 'Wie ändere ich die Sprache?', a: 'Konto → Sprache.' },
     { q: 'Wie lösche ich mein Konto?', a: 'Konto → Konto löschen. Du brauchst dein Passwort. Alle Bots werden auch gelöscht.' },
+    { q: 'Wie bekomme ich ein Konto?', a: 'Du brauchst eine Einladung von unserem Team. Frag uns auf Discord. Dann tippe beim Anmelden auf „Ich habe eine Einladung“.', guide: 'register' },
+    { q: 'Was ist der Unterschied zwischen Begrüßer und Wächter?', a: 'Der Begrüßer sagt allen Hallo, die reinkommen. Der Wächter passt auf deinen Raum auf: Verwarnungen, böse Wörter, VIP-Bereiche, Orte zum Hinspringen und mehr.' },
+    { q: 'Verliere ich Einstellungen, wenn ich den Raum ändere?', a: 'Nein. Nachrichten, Helfer und alles andere bleiben. Den Raum änderst du in den Experten-Einstellungen.' },
+    { q: 'Wie mache ich jemanden zum Helfer meines Bots?', a: 'Öffne den Bot → Helfer → Hinzufügen. Dann darf die Person die Chat-Wörter benutzen.' },
+    { q: 'Mein Bot ist aus, hat aber noch Zeit.', a: 'Jemand hat ihn ausgeschaltet. Schalte ihn wieder an. Die Zeit läuft nur, wenn der Bot an ist.', guide: 'startStop' },
+    { q: 'Wie füge ich eigene Lieder zum DJ hinzu?', a: 'In den Experten-Einstellungen des DJs unter „Meine Lieder“.', guide: 'djSongs' },
+    { q: 'Wie höre ich mein Radio?', a: 'Öffne deinen DJ → Musik → „Hier anhören“. Oder Konto → Meine Radios.', guide: 'radio' },
+    { q: 'Wie ändere ich mein Passwort?', a: 'Konto → Passwort ändern.', guide: 'password' },
   ],
-  commands: {
-    welcome: [
-      { cmd: '-welcome @name Text', what: 'Ein extra Hallo für eine Person' },
-      { cmd: '-posuser @name', what: 'Der Bot geht dahin, wo die Person steht' },
-      { cmd: '-stoppos @name', what: 'Damit aufhören' },
-      { cmd: '-posbot 6 0 8', what: 'Den Bot an eine Stelle schicken' },
-    ],
-    mod: [
-      { cmd: '!help', what: 'Alle Chat-Wörter zeigen' },
-      { cmd: '!warn @name', what: 'Eine Verwarnung geben' },
-      { cmd: '!mute @name / !unmute @name', what: 'Jemanden stumm / wieder laut machen' },
-      { cmd: '!kick @name', what: 'Jemanden aus dem Raum schicken' },
-      { cmd: '!ban @name / !unban @name', what: 'Jemanden sperren / wieder reinlassen' },
-      { cmd: '!report @name Grund', what: 'Den Helfern ein Problem melden' },
-      { cmd: '!go Ort', what: 'Zu einem Ort springen' },
-      { cmd: '!tp @name Ort', what: 'Jemanden zu einem Ort schicken' },
-      { cmd: '!setrole @name vip', what: 'Jemanden zu Admin, Moderator oder VIP machen' },
-      { cmd: '!addvipzone', what: 'VIP-Bereich da machen, wo du stehst' },
-      { cmd: '!posbot', what: 'Der Bot kommt zu dir' },
-      { cmd: '!dance 5', what: 'Den Bot tanzen lassen' },
-    ],
-    music: [
-      { cmd: '-play Lied  (-p)', what: 'Ein Lied dazutun' },
-      { cmd: '-playtop Lied  (-pt)', what: 'Ein Lied als Nächstes spielen' },
-      { cmd: '-skip  (-s)', what: 'Lied überspringen' },
-      { cmd: '-queue  (-q)', what: 'Die nächsten Lieder zeigen' },
-      { cmd: '-np', what: 'Das Lied jetzt zeigen' },
-      { cmd: '-volup / -voldown', what: 'Lauter / leiser' },
-      { cmd: '-clearqueue', what: 'Alle nächsten Lieder entfernen' },
-      { cmd: '!autoplay on / off', what: 'Weiterspielen, wenn die Liste leer ist' },
-      { cmd: '-add_dj @name', what: 'Jemanden zum DJ machen' },
-      { cmd: '-block @name / -unblock @name', what: 'Liedwünsche sperren oder erlauben' },
-    ],
-  },
   fix: {
     designer: 'Der Bot hat keine Designer-Rechte in deinem Raum',
     token: 'Der Bot-Schlüssel ist falsch oder gelöscht',
@@ -269,6 +267,30 @@ const ar: Pack = {
       title: 'حرّك البوت بسهولة',
       steps: ['📱 ادخل غرفتك في Highrise.', '🚶 قف حيث تريد أن يقف البوت.', '💬 اكتب كلمة الدردشة في الأسفل.', '✅ يمشي البوت إليك.'],
     },
+    register: {
+      title: 'أنشئ حسابًا',
+      steps: ['💌 احصل على رابط دعوة من فريقنا (اسأل في Discord).', '👆 في صفحة الدخول اضغط «لدي دعوة».', '📋 الصق الرابط واضغط «افحص الدعوة».', '🙂 اختر اسمًا وكلمة مرور.', '✅ وافق على القواعد واضغط «إنشاء الحساب».', '💬 ثم اربط Discord – يريك التطبيق كيف.'],
+    },
+    newBot: {
+      title: 'اصنع بوتًا جديدًا',
+      steps: ['➕ في صفحة البوتات اضغط «جديد».', '🤖 اختر ماذا يفعل البوت.', '🏷️ أعطه اسمًا.', '🔑 الصق مفتاح البوت من Highrise.', '🔗 الصق رابط غرفتك.', '🚪 دع البوت يدخل غرفتك (Designer).', '✅ انتهى! البوت محفوظ وما زال مطفأ.'],
+    },
+    startStop: {
+      title: 'تشغيل البوت وإطفاؤه',
+      steps: ['👆 اضغط زر التشغيل/الإطفاء الكبير على البوت.', '⏱️ بعد ثانية أو ثانيتين يكون البوت في غرفتك.', '💤 أطفئه – يبقى الوقت المتبقي محفوظًا.', '🔄 «إعادة التشغيل» (إعدادات الخبراء) تحفظ الوقت أيضًا.'],
+    },
+    password: {
+      title: 'غيّر كلمة المرور',
+      steps: ['🙂 اذهب إلى الحساب ← تغيير كلمة المرور.', '🔒 اكتب كلمة المرور القديمة.', '🆕 اكتب الجديدة مرتين.', '✅ تبقى الهواتف الأخرى مسجّلة الدخول.'],
+    },
+    djSongs: {
+      title: 'أضف أغانيك إلى الـ DJ',
+      steps: ['🎧 افتح بوت الـ DJ ← إعدادات الخبراء ← أغانيّ.', '➕ اضغط «أضف أغنية (‎.mp3‎)» واختر ملف أغنية.', '📏 حتى 20 أغنية، كل واحدة حتى 10 ميغابايت.', '🔁 شغّل «استمر بالتشغيل» – يشغّلها الـ DJ عندما لا يطلب أحد أغنية.'],
+    },
+    radio: {
+      title: 'الراديو الخاص بك',
+      steps: ['📻 كل بوت DJ يأتي مع راديو خاص به.', '🎧 اضغط «استمع هنا» لتسمعه في التطبيق.', '🔌 في الحساب ← إذاعاتي يمكنك ربط راديو بـ DJ آخر.', '🧰 في «التفاصيل» بيانات برامج الموسيقى على الكمبيوتر.'],
+    },
   },
   why: {
     kind: 'لكل بوت مهمة واحدة. يمكنك صنع المزيد لاحقًا.',
@@ -296,41 +318,15 @@ const ar: Pack = {
     { q: 'ماذا يعني «الوقت المتبقي»؟', a: 'يوضح كم من الوقت يمكن أن يبقى البوت شغّالًا.' },
     { q: 'كيف أغيّر اللغة؟', a: 'الحساب ← اللغة.' },
     { q: 'كيف أحذف حسابي؟', a: 'الحساب ← حذف الحساب. تحتاج كلمة المرور. ستُحذف كل البوتات أيضًا.' },
+    { q: 'كيف أحصل على حساب؟', a: 'تحتاج دعوة من فريقنا. اسألنا في Discord. ثم اضغط «لدي دعوة» في صفحة الدخول.', guide: 'register' },
+    { q: 'ما الفرق بين بوت الترحيب وبوت الحراسة؟', a: 'بوت الترحيب يرحّب بكل من يدخل. بوت الحراسة يحمي غرفتك: تحذيرات، كلمات ممنوعة، مناطق VIP، أماكن للانتقال وأكثر.' },
+    { q: 'هل أفقد إعداداتي إذا غيّرت الغرفة؟', a: 'لا. الرسائل والمساعدون وكل شيء آخر يبقى. غيّر الغرفة في إعدادات الخبراء.' },
+    { q: 'كيف أجعل شخصًا مساعدًا لبوتي؟', a: 'افتح البوت ← المساعدون ← إضافة. بعدها يستطيع استخدام كلمات الدردشة.' },
+    { q: 'البوت مطفأ لكن لديه وقت.', a: 'أطفأه شخص ما. شغّله من جديد. الوقت ينقص فقط عندما يكون البوت شغّالًا.', guide: 'startStop' },
+    { q: 'كيف أضيف أغانيّ إلى الـ DJ؟', a: 'في إعدادات الخبراء للـ DJ تحت «أغانيّ».', guide: 'djSongs' },
+    { q: 'كيف أسمع الراديو الخاص بي؟', a: 'افتح الـ DJ ← الموسيقى ← «استمع هنا». أو الحساب ← إذاعاتي.', guide: 'radio' },
+    { q: 'كيف أغيّر كلمة المرور؟', a: 'الحساب ← تغيير كلمة المرور.', guide: 'password' },
   ],
-  commands: {
-    welcome: [
-      { cmd: '-welcome @name text', what: 'ترحيب خاص لشخص واحد' },
-      { cmd: '-posuser @name', what: 'يذهب البوت إلى مكان هذا الشخص' },
-      { cmd: '-stoppos @name', what: 'إيقاف ذلك' },
-      { cmd: '-posbot 6 0 8', what: 'إرسال البوت إلى مكان' },
-    ],
-    mod: [
-      { cmd: '!help', what: 'عرض كل كلمات الدردشة' },
-      { cmd: '!warn @name', what: 'إعطاء تحذير' },
-      { cmd: '!mute @name / !unmute @name', what: 'إسكات شخص / السماح له بالكلام' },
-      { cmd: '!kick @name', what: 'إخراج شخص من الغرفة' },
-      { cmd: '!ban @name / !unban @name', what: 'حظر شخص / إرجاعه' },
-      { cmd: '!report @name reason', what: 'إخبار المساعدين بمشكلة' },
-      { cmd: '!go place', what: 'الانتقال إلى مكان' },
-      { cmd: '!tp @name place', what: 'إرسال شخص إلى مكان' },
-      { cmd: '!setrole @name vip', what: 'جعل شخص مشرفًا أو VIP' },
-      { cmd: '!addvipzone', what: 'صنع منطقة VIP حيث تقف' },
-      { cmd: '!posbot', what: 'يأتي البوت إليك' },
-      { cmd: '!dance 5', what: 'جعل البوت يرقص' },
-    ],
-    music: [
-      { cmd: '-play song  (-p)', what: 'إضافة أغنية' },
-      { cmd: '-playtop song  (-pt)', what: 'تشغيل أغنية بعد الحالية' },
-      { cmd: '-skip  (-s)', what: 'تخطي الأغنية' },
-      { cmd: '-queue  (-q)', what: 'عرض الأغاني القادمة' },
-      { cmd: '-np', what: 'عرض الأغنية الآن' },
-      { cmd: '-volup / -voldown', what: 'أعلى / أخفض' },
-      { cmd: '-clearqueue', what: 'حذف كل الأغاني القادمة' },
-      { cmd: '!autoplay on / off', what: 'الاستمرار عندما تفرغ القائمة' },
-      { cmd: '-add_dj @name', what: 'جعل شخص DJ' },
-      { cmd: '-block @name / -unblock @name', what: 'منع أو السماح بطلب الأغاني' },
-    ],
-  },
   fix: {
     designer: 'البوت ليس لديه صلاحية Designer في غرفتك',
     token: 'مفتاح البوت خطأ أو تم حذفه',
@@ -351,6 +347,11 @@ export const content: Pack = {
   get botNames() { return PACKS[getLang()].botNames; },
   get subjects() { return PACKS[getLang()].subjects; },
   get faq() { return PACKS[getLang()].faq; },
-  get commands() { return PACKS[getLang()].commands; },
   get fix() { return PACKS[getLang()].fix; },
 };
+
+/** Rechtliches der Webseite in der App-Sprache (die Seite liest ?lang=) */
+export const legalUrl = (page: 'terms' | 'privacy' | 'imprint') => `https://highrise-bots.com/${page}?lang=${getLang()}`;
+
+/** Alle Chat-Wörter je Bot-Art (+ Verknüpfungs-Helfer „bank“), mit „Wer darf das?“ – siehe commands.ts */
+export const chatWords = (): Record<CmdKind, Command[]> => commandsFor(getLang());

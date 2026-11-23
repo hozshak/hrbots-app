@@ -1,23 +1,32 @@
 // Typisierte Aufrufe für jeden Endpunkt aus API.md. Pfade relativ zu /api/v1.
 // Alle Formen nach API.md (Stand 23.11.2026); der Mock (mock.ts) spielt sie nach.
 // Gold-Felder/Endpunkte (Preise, Mieten, VIP-Preis, Gold pro Ticket) nutzt die App bewusst NICHT (App-Store-Regel 3.1.3(f)).
-import { request, saveToken } from './transport';
+import { request, saveToken, upload, type UploadFile } from './transport';
 import type {
-  ActionResult, AdminResult, AnnouncementsResult, AutoplayFile, BannedAction, BannedWordResult, Bot, BotDetail, BotKind,
-  ChatMessage, CommandResult, CreateBotInput, DestinationResult, DiscordInfo, HighriseLink, LoginResult, Me, MessageResult, MinRole,
-  ModOutfit, ModRole, ModWelcomeResult, MusicAction, MusicRecentCommand, MusicRole, MusicSettingsResult, MusicTicket, Ok,
-  PowerAction, PresenceEvent, RadioStation, RadioStatus, RoleResult, SupportReply, SupportTicket, SupportTicketDetail, TrackedUser,
-  UpdateBotInput, UpdateBotResult, VipZone, Wallet,
+  ActionResult, AdminResult, AnnouncementsResult, AutoplayFile, AutoplayList, BannedAction, BannedWordResult, Bot, BotDetail, BotKind,
+  ChatMessage, CommandResult, CreateBotInput, DestinationResult, DiscordInfo, DiscordWebLink, HighriseLink, InviteInfo, LoginResult, Me,
+  MessageResult, MinRole, ModOutfit, ModRole, ModWelcomeResult, MusicAction, MusicRecentCommand, MusicRole, MusicSettingsResult, MusicTicket, Ok,
+  PowerAction, PresenceEvent, RadioStation, RadioStatus, RegisterInput, RegisterResult, RoleResult, SupportReply, SupportTicket,
+  SupportTicketDetail, TrackedUser, UpdateBotInput, UpdateBotResult, VipZone, Wallet,
 } from './types';
 
 const e = encodeURIComponent;
 const stamp = <T extends Bot>(b: T): T => ({ ...b, received_at: Date.now() });
+const withImage = (image?: string | null) => (image ? { image } : {});
 
 export const auth = {
   async login(username: string, password: string, device_name?: string) {
     const r = await request<LoginResult>('POST', '/auth/login', { username, password, ...(device_name ? { device_name: device_name.slice(0, 60) } : {}) });
     await saveToken(r.token);
     return r.user;
+  },
+  /** Einladung prüfen (ohne Anmeldung) · 404 invalid_invite · 429 */
+  invite: (code: string) => request<InviteInfo>('GET', `/auth/invite/${e(code)}`),
+  /** Konto mit Einladung anlegen; danach angemeldet · 400 · 404 invalid_invite · 409 username_taken / discord_taken · 429 */
+  async register(input: RegisterInput, device_name?: string) {
+    const r = await request<RegisterResult>('POST', '/auth/register', { ...input, ...(device_name ? { device_name: device_name.slice(0, 60) } : {}) });
+    await saveToken(r.token);
+    return r;
   },
   async logout() {
     try {
@@ -44,6 +53,8 @@ export const account = {
   linkHighrise: (code: string) => request<{ ok: true; highrise_username: string }>('POST', '/me/link', { code: code.trim().toUpperCase() }),
   /** auch ohne Discord erlaubt; Verbinden geht nur im Browser (verify_url) */
   discord: () => request<DiscordInfo>('GET', '/me/discord'),
+  /** Einmal-Link (5 min): öffnet im Browser die Discord-Seite schon angemeldet (kein zweites Anmelden) */
+  discordWebLink: (lang?: string) => request<DiscordWebLink>('POST', '/me/discord/web_link', lang ? { lang } : undefined),
   /** nur ansehen (kein Kaufen/Mieten in der App) */
   wallet: () => request<Wallet>('GET', '/me/wallet'),
 };
@@ -151,8 +162,11 @@ export const music = {
   /** eigener Icecast-Server; `password` weglassen = altes behalten */
   setIcecast: (id: number, s: { host: string; port: number; user: string; mount: string; password?: string }) =>
     request<{ stream_url: string }>('PUT', `/bots/music/${id}/icecast`, s),
-  /** Lieder für Autoplay (Hochladen in der App noch nicht – bräuchte eine Datei-Auswahl) · 502 */
-  autoplayFiles: async (id: number) => (await request<{ files: AutoplayFile[] }>('GET', `/bots/music/${id}/autoplay`)).files,
+  /** Lieder für Autoplay (Liste + Grenzen) · 502 */
+  autoplay: (id: number) => request<AutoplayList>('GET', `/bots/music/${id}/autoplay`),
+  autoplayFiles: async (id: number) => (await request<AutoplayList>('GET', `/bots/music/${id}/autoplay`)).files,
+  /** MP3 hochladen (multipart, Feld `file`) · 400 (kein .mp3 / > 10 MB) · 403 limit_reached (20 Lieder) · 502 */
+  uploadAutoplay: (id: number, file: UploadFile) => upload<{ ok: true; file: AutoplayFile }>(`/bots/music/${id}/autoplay`, file),
   removeAutoplayFile: (id: number, name: string) => request<Ok>('DELETE', `/bots/music/${id}/autoplay/${e(name)}`),
 };
 
@@ -169,15 +183,16 @@ export const radio = {
 export const support = {
   list: async () => (await request<{ tickets: SupportTicket[] }>('GET', '/me/tickets')).tickets,
   get: (id: number) => request<{ ticket: SupportTicketDetail; replies: SupportReply[] }>('GET', `/me/tickets/${id}`),
-  /** 403 limit_reached (höchstens 5 offene) · bot_kind nur welcome/mod */
-  create: async (t: { subject: string; body: string; bot_kind?: 'welcome' | 'mod'; bot_id?: number }) =>
-    (await request<{ ticket: SupportTicketDetail }>('POST', '/me/tickets', t)).ticket,
+  /** 403 limit_reached (höchstens 5 offene) · bot_kind nur welcome/mod · image = Data-URL (png/jpeg/gif/webp, ≤ 800 000 Zeichen) */
+  create: async (t: { subject: string; body: string; bot_kind?: 'welcome' | 'mod'; bot_id?: number; image?: string | null }) =>
+    (await request<{ ticket: SupportTicketDetail }>('POST', '/me/tickets', { ...t, image: undefined, ...withImage(t.image) })).ticket,
   /** 409 ticket_closed */
-  reply: (id: number, body: string) => request<{ reply: SupportReply }>('POST', `/me/tickets/${id}/replies`, { body }),
+  reply: (id: number, body: string, image?: string | null) =>
+    request<{ reply: SupportReply }>('POST', `/me/tickets/${id}/replies`, { body, ...withImage(image) }),
 };
 
-/** Hilfe-Chatbot (gleiche KI wie auf der Webseite; gemeinsames Tageslimit) */
+/** Hilfe-Chatbot (gleiche KI wie auf der Webseite; gemeinsames Tageslimit; ein Bild zählt 3) */
 export const helpChat = {
-  send: (messages: ChatMessage[], lang?: string) =>
-    request<{ reply: string; limit_reached: boolean }>('POST', '/chat', { messages, ...(lang ? { lang } : {}) }),
+  send: (messages: ChatMessage[], lang?: string, image?: string | null) =>
+    request<{ reply: string; limit_reached: boolean }>('POST', '/chat', { messages, ...(lang ? { lang } : {}), ...withImage(image) }),
 };

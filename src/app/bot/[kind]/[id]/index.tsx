@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useNow, usePending } from '@/lib/query';
 import { t } from '@/lib/i18n';
 import { openFixIt } from '@/lib/fixit';
+import { openRoom } from '@/lib/ui';
 import { C, KIND_COLOR, KIND_EMOJI, S, T } from '@/lib/theme';
 import { Button, Card, Empty, ErrorState, Face, goBack, Loading, Note, Screen, SectionTitle, Tile, Txt } from '@/components/ui';
 import { PowerButton, powerLook, TimeLeft } from '@/components/BotCard';
@@ -28,6 +29,8 @@ function Hero({ bot }: { bot: Bot }) {
       <TimeLeft bot={bot} now={now} />
       <PowerButton bot={bot} testID="detail-power" />
       {look === 'help' ? <Button testID="detail-fix" label={t('bot.fixIt')} emoji="🛠️" variant="warning" onPress={() => openFixIt(bot, 'crashed')} /> : null}
+      {/* wie „Open room“ auf der Webseite: gespeicherter Raum-Link, sonst high.rs/room?id=… */}
+      <Button testID="detail-room" label={t('bot.openRoom')} emoji="🚪" variant="secondary" small onPress={() => openRoom(bot.room_url || `https://high.rs/room?id=${bot.room_id}`)} />
     </Card>
   );
 }

@@ -9,6 +9,7 @@ import { haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { C, KIND_EMOJI, T } from '@/lib/theme';
 import { Button, Choice, Field, Screen, Templates, Txt } from '@/components/ui';
+import { ImageAttach } from '@/components/ImageBits';
 
 export default function NewTicket() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function NewTicket() {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [bot, setBot] = useState<string>(params.bot && !params.bot.startsWith('music') ? params.bot : 'none');
+  const [image, setImage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const ok = !!subject.trim() && body.trim().length >= EXTRA_LIMITS.ticketBodyMin;
@@ -27,7 +29,7 @@ export default function NewTicket() {
     setErr(null);
     try {
       const [k, id] = bot === 'none' ? [undefined, undefined] : bot.split(':');
-      const tk = await support.create({ subject: subject.trim(), body: body.trim(), ...(k ? { bot_kind: k as 'welcome' | 'mod', bot_id: Number(id) } : {}) });
+      const tk = await support.create({ subject: subject.trim(), body: body.trim(), image, ...(k ? { bot_kind: k as 'welcome' | 'mod', bot_id: Number(id) } : {}) });
       haptic.success();
       toast(t('tickets2.sent'), 'success');
       queryClient.invalidateQueries({ queryKey: keys.tickets });
@@ -64,6 +66,7 @@ export default function NewTicket() {
         error={err}
         testID="ticket-body"
       />
+      <ImageAttach value={image} onChange={setImage} testID="ticket-image" />
       <Button label={t('tickets2.send')} emoji="📨" onPress={send} loading={busy} disabled={!ok} testID="ticket-send" />
     </Screen>
   );

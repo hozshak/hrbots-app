@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import {
-  cleanUsername, isUsername, mod, BANNED_ACTIONS, INPUT_LIMITS, MIN_ROLES, type BannedAction, type BotDetail, type MinRole,
+  cleanUsername, isUsername, mod, BANNED_ACTIONS, INPUT_LIMITS, MIN_ROLES, type BannedAction, type BotDetail, type BotWallet, type MinRole,
   type ModRole, type ModSettings,
 } from '@/api';
 import { useNow } from '@/lib/query';
-import { relTime } from '@/lib/format';
+import { fmtNum, relTime } from '@/lib/format';
 import { t, type Key } from '@/lib/i18n';
 import { content } from '@/lib/content';
 import { confirm } from '@/lib/ui';
@@ -369,6 +369,28 @@ export function ModLook({ d }: P) {
   );
 }
 
+// ---------------------------------------------------------------- Gold des Bots (nur Anzeige, wie die Karte „Bot Wallet“)
+export function BotGold({ wallet, cmd }: { wallet?: BotWallet; cmd: string }) {
+  if (!wallet) return null;
+  const known = wallet.gold != null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, padding: S.md }} testID="bot-gold">
+      <Txt style={{ fontSize: 28 }} maxFontSizeMultiplier={1.2}>🪙</Txt>
+      <View style={{ flex: 1 }}>
+        <Txt style={[T.sub, { color: C.text2 }]}>{t('botgold.title')}</Txt>
+        {known ? (
+          <Txt style={[T.headline, { color: C.gold }]}>
+            {fmtNum(wallet.gold!)} {t('wallet.gold')}
+            {wallet.updated_at ? <Txt style={T.caption}>{`  · ${t('botgold.updated', { when: relTime(wallet.updated_at) })}`}</Txt> : null}
+          </Txt>
+        ) : (
+          <Txt style={T.sub}>{t('botgold.none', { cmd })}</Txt>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------- Aktivität
 type ActTab = 'visitors' | 'watch' | 'log' | 'guests';
 export function ModActivity({ d }: P) {
@@ -378,6 +400,7 @@ export function ModActivity({ d }: P) {
   const guests = sOf(d).guests ?? [];
   return (
     <>
+      <BotGold wallet={sOf(d).wallet} cmd="!wallet" />
       <Tabs<ActTab>
         value={tab}
         onChange={setTab}

@@ -7,12 +7,14 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
-import { account, BOT_KINDS, MOCK, SITE, type Wallet, type WalletTx } from '@/api';
+import { account, support, BOT_KINDS, MOCK, type Wallet, type WalletTx } from '@/api';
 import { keys } from '@/lib/query';
-import { signOut, useSession } from '@/lib/session';
+import { connectDiscord, signOut, useSession } from '@/lib/session';
 import { getLangSetting, LANG_NAMES, t, type Key } from '@/lib/i18n';
 import { fmtNum, relTime } from '@/lib/format';
-import { confirm, openUrl } from '@/lib/ui';
+import { legalUrl } from '@/lib/content';
+import { toast } from '@/lib/toast';
+import { confirm, haptic, openUrl } from '@/lib/ui';
 import { C, FONT, glow, KIND_EMOJI, R, S, T } from '@/lib/theme';
 import { Card, ErrorState, MenuRow, Screen, SectionTitle, Txt } from '@/components/ui';
 import { Expandable } from '@/components/guide';
@@ -63,17 +65,25 @@ export default function AccountTab() {
   const router = useRouter();
   const session = useSession();
   const me = useQuery({ queryKey: keys.me, queryFn: account.me });
-  const wallet = useQuery({ queryKey: keys.wallet, queryFn: account.wallet });
-  const discord = useQuery({ queryKey: ['discord'], queryFn: account.discord });
   const user = me.data?.user ?? session.user;
+  // Gold + Nachrichten brauchen Discord (sonst 403 discord_required) → erst danach laden
+  const linked = !!user?.discord_linked;
+  const wallet = useQuery({ queryKey: keys.wallet, queryFn: account.wallet, enabled: linked });
+  const discord = useQuery({ queryKey: ['discord'], queryFn: account.discord });
+  const tickets = useQuery({ queryKey: keys.tickets, queryFn: support.list, enabled: linked });
+  // „neue Antwort“ = das Team hat geantwortet (Status answered), wie die Status-Anzeige der Webseite
+  const answered = (tickets.data ?? []).filter((x) => x.status === 'answered').length;
 
   useEffect(() => {
     me.refetch();
-    wallet.refetch();
     discord.refetch();
+    if (linked) {
+      wallet.refetch();
+      tickets.refetch();
+    }
   }, []);
 
-  const version = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.1.0';
+  const version = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.2.0';
   const build = Application.nativeBuildVersion;
   const ls = getLangSetting();
 
@@ -95,24 +105,36 @@ export default function AccountTab() {
 
       <View style={{ gap: S.sm }}>
         <MenuRow
+          testID="row-discord"
           emoji="💬"
           label={t('account.discord')}
-          value={user?.discord_linked
+          value={linked
             ? `✅ ${discord.data?.discord_username ? t('account.discordAs', { name: discord.data.discord_username }) : t('account.discordOn')}`
             : `⚠️ ${t('account.discordOff')}`}
-          onPress={user?.discord_linked ? undefined : () => openUrl(discord.data?.verify_url || `${SITE}/verify`)}
+          onPress={linked ? undefined : async () => {
+            if (await connectDiscord()) {
+              haptic.success();
+              toast(t('discord.linked'), 'success');
+            }
+          }}
         />
         <MenuRow testID="row-language" emoji="🌍" label={t('account.language')} value={ls === 'auto' ? t('lang.auto') : LANG_NAMES[ls]} onPress={() => router.push('/language')} />
         <MenuRow testID="row-password" emoji="🔒" label={t('account.password')} onPress={() => router.push('/password')} />
         <MenuRow testID="row-radios" emoji="📻" label={t('account.radios')} onPress={() => router.push('/radios')} />
-        <MenuRow testID="row-tickets" emoji="💌" label={t('account.tickets')} onPress={() => router.push('/tickets')} />
+        <MenuRow
+          testID="row-tickets"
+          emoji="💌"
+          label={t('account.tickets')}
+          value={answered ? `🔔 ${answered === 1 ? t('account.ticketsNew1') : t('account.ticketsNew', { n: answered })}` : null}
+          onPress={() => router.push('/tickets')}
+        />
       </View>
 
       <SectionTitle title={t('account.legal')} />
       <View style={{ gap: S.sm }}>
-        <MenuRow emoji="🛡️" label={t('account.privacy')} onPress={() => openUrl(`${SITE}/privacy`)} />
-        <MenuRow emoji="📄" label={t('account.terms')} onPress={() => openUrl(`${SITE}/terms`)} />
-        <MenuRow emoji="🏢" label={t('account.imprint')} onPress={() => openUrl(`${SITE}/imprint`)} />
+        <MenuRow emoji="🛡️" label={t('account.privacy')} onPress={() => openUrl(legalUrl('privacy'))} />
+        <MenuRow emoji="📄" label={t('account.terms')} onPress={() => openUrl(legalUrl('terms'))} />
+        <MenuRow emoji="🏢" label={t('account.imprint')} onPress={() => openUrl(legalUrl('imprint'))} />
       </View>
 
       <View style={{ gap: S.sm, marginTop: S.sm }}>

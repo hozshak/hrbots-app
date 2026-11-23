@@ -13,8 +13,10 @@ import { C, R, S, T } from '@/lib/theme';
 import { Button, Choice, Empty, ErrorState, Field, IconBtn, ListItem, Loading, Note, Tabs, ToggleRow, Txt } from '../ui';
 import { AddPanel, MessageList, NameField, NameList, useBotChange } from '../editors';
 import { PowerButton } from '../BotCard';
-import { OwnerEditor } from './mod';
+import { StreamPlayer } from '../StreamPlayer';
+import { BotGold, OwnerEditor } from './mod';
 import { Visitors } from './common';
+import { useSession } from '@/lib/session';
 
 type P = { d: BotDetail };
 const sOf = (d: BotDetail) => d.settings as MusicSettings;
@@ -111,6 +113,8 @@ export function MusicPlayer({ d }: P) {
         loading={busy === 'clearqueue'}
         onPress={async () => { if (await confirm(t('music.clearQ'), '', t('music.clear'))) send('clearqueue'); }}
       />
+      {/* wie der Player „Live Stream“ der Webseite */}
+      {s.stream_url ? <StreamPlayer url={s.stream_url} testID="music-player" /> : null}
     </>
   );
 }
@@ -235,9 +239,12 @@ export function MusicActivity({ d }: P) {
   const id = d.bot.id;
   const [tab, setTab] = useState<ActTab>('visitors');
   const now = useNow(30000);
+  // eigene Befehle aus der App tragen den Kontonamen (Server) – den nicht extra anzeigen
+  const me = (useSession().user?.username ?? '').toLowerCase();
   const q = useQuery({ queryKey: keys.extra('recent', 'music', id), queryFn: () => music.recentCommands(id), enabled: tab === 'commands', refetchInterval: 10000 });
   return (
     <>
+      <BotGold wallet={sOf(d).wallet} cmd="-musicwallet" />
       <Tabs<ActTab> value={tab} onChange={setTab} options={[{ value: 'visitors', emoji: '🚶', label: t('activity.visitors') }, { value: 'commands', emoji: '🎛️', label: t('activity.commands') }]} />
       {tab === 'visitors' ? <Visitors d={d} /> : q.isLoading ? <Loading /> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (q.data ?? []).length === 0 ? (
         <Empty emoji="🎛️" title={t('activity.commandsEmpty')} />
@@ -248,7 +255,7 @@ export function MusicActivity({ d }: P) {
               key={c.id}
               emoji={c.status === 'error' ? '❌' : c.status === 'done' ? CMD_EMOJI[c.action] ?? '🎵' : '⏳'}
               title={`${t(`cmd.${c.action}` as Key)}${c.args?.query ? `: ${c.args.query}` : ''}`}
-              sub={[c.requested_by && c.requested_by !== 'app' ? `@${c.requested_by}` : null, t(`cmdstatus.${c.status}` as Key), relTime(c.created_at, now)].filter(Boolean).join(' · ')}
+              sub={[c.requested_by && c.requested_by !== 'app' && c.requested_by.toLowerCase() !== me ? `@${c.requested_by}` : null, t(`cmdstatus.${c.status}` as Key), relTime(c.created_at, now)].filter(Boolean).join(' · ')}
             />
           ))}
         </View>

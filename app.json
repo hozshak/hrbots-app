@@ -3,7 +3,7 @@
     "name": "HR Bots",
     "slug": "hrbots",
     "owner": "altraex",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hrbots",
@@ -20,7 +20,8 @@
           "de",
           "ar"
         ],
-        "CFBundleDevelopmentRegion": "en"
+        "CFBundleDevelopmentRegion": "en",
+        "NSPhotoLibraryUsageDescription": "HR Bots lets you pick a picture (for example a screenshot) to send it to our support team or the helper robot."
       }
     },
     "web": {
@@ -39,7 +40,22 @@
       ],
       "expo-secure-store",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HR Bots lets you pick a picture (for example a screenshot) to send it to our support team or the helper robot.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

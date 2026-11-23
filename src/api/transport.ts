@@ -87,6 +87,13 @@ async function httpRequest(method: Method, path: string, body: unknown): Promise
 
 let mockHandler: Handler | null = null;
 
+function onApiError(e: unknown, path: string) {
+  if (e instanceof ApiError) {
+    if (e.code === 'unauthorized' && path !== '/auth/login' && path !== '/auth/register') hooks.unauthorized?.();
+    if (e.code === 'discord_required') hooks.discordRequired?.();
+  }
+}
+
 export async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
   try {
     if (MOCK) {
@@ -95,10 +102,48 @@ export async function request<T>(method: Method, path: string, body?: unknown): 
     }
     return (await httpRequest(method, path, body)) as T;
   } catch (e) {
-    if (e instanceof ApiError) {
-      if (e.code === 'unauthorized' && path !== '/auth/login') hooks.unauthorized?.();
-      if (e.code === 'discord_required') hooks.discordRequired?.();
+    onApiError(e, path);
+    throw e;
+  }
+}
+
+/** Datei aus der Auswahl (expo-document-picker): `uri` auf dem iPhone, im Browser zusätzlich das File-Objekt. */
+export type UploadFile = { uri: string; name: string; size: number | null; mimeType: string; file?: Blob | null };
+
+/** multipart/form-data-Upload (Feld `file`), z. B. Autoplay-MP3s. Großzügige Zeit (bis 10 MB). */
+export async function upload<T>(path: string, f: UploadFile, timeoutMs = 180000): Promise<T> {
+  try {
+    if (MOCK) {
+      if (!mockHandler) mockHandler = (await import('./mock')).mockHandler;
+      return (await mockHandler('POST', path, { __file: { name: f.name, size: f.size ?? 0, type: f.mimeType } }, token)) as T;
     }
+    const form = new FormData();
+    if (Platform.OS === 'web' && f.file) form.append('file', f.file, f.name);
+    // React Native: {uri, name, type} wird als Datei gesendet
+    else form.append('file', { uri: f.uri, name: f.name, type: f.mimeType } as unknown as Blob);
+    let res: Response;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      res = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: { accept: 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: form,
+        signal: ctl.signal,
+      });
+    } catch {
+      throw new ApiError(0, 'offline');
+    } finally {
+      clearTimeout(timer);
+    }
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {}
+    if (!res.ok) throw new ApiError(res.status, data?.error || 'server_error', data?.message);
+    return data as T;
+  } catch (e) {
+    onApiError(e, path);
     throw e;
   }
 }

@@ -1,8 +1,9 @@
-// Anmelden. Keine Registrierung in der App – Konten gibt es nur auf der Webseite.
+// Anmelden. Neue Konten: mit Einladung (wie die Webseite, nur auf Einladung) → „Ich habe eine Einladung“.
 import { useRef, useState } from 'react';
 import { Image, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MOCK, SITE } from '@/api';
+import { MOCK } from '@/api';
+import { SUPPORT_DISCORD } from '@/lib/content';
 import { signIn } from '@/lib/session';
 import { errorText, t } from '@/lib/i18n';
 import { haptic, openUrl } from '@/lib/ui';
@@ -67,8 +68,12 @@ export default function Login() {
         />
         <Button label={t('login.go')} emoji="🚀" onPress={submit} loading={busy} disabled={!username.trim() || !password} testID="login-submit" />
       </Card>
-      <Button label={t('login.noAccount')} variant="ghost" small onPress={() => openUrl(SITE)} />
-      {MOCK ? <Txt style={[T.caption, { textAlign: 'center', color: C.yellow }]}>🧪 {t('common.demo')}{'\n'}{t('login.demoHint')}</Txt> : null}
+      <Card style={{ gap: S.md }}>
+        <Txt style={[T.callout, { textAlign: 'center' }]}>{t('login.needInvite')}</Txt>
+        <Button label={t('login.haveInvite')} emoji="💌" variant="secondary" onPress={() => router.push('/register')} testID="login-invite" />
+        <Button label={t('login.askInvite')} emoji="💬" variant="ghost" small onPress={() => openUrl(SUPPORT_DISCORD)} />
+      </Card>
+      {MOCK ? <Txt style={[T.caption, { textAlign: 'center', color: C.yellow }]}>🧪 {t('common.demo')}{'\n'}{t('login.demoHint')}{'\n'}DEMO-INVITE-1234</Txt> : null}
     </Screen>
   );
 }
