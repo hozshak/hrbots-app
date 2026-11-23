@@ -2,19 +2,30 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import {
-  cleanUsername, isUsername, mod, BANNED_ACTIONS, INPUT_LIMITS, MIN_ROLES, type BannedAction, type BotDetail, type BotWallet, type MinRole,
+  cleanUsername, isUsername, mod, BANNED_ACTIONS, INPUT_LIMITS, MIN_ROLES, type BannedAction, type BotDetail, type MinRole,
   type ModRole, type ModSettings,
 } from '@/api';
 import { useNow } from '@/lib/query';
-import { fmtNum, relTime } from '@/lib/format';
+import { at, relTime } from '@/lib/format';
 import { t, type Key } from '@/lib/i18n';
 import { content } from '@/lib/content';
 import { confirm } from '@/lib/ui';
 import { C, S, T } from '@/lib/theme';
 import { Button, Choice, CodeChip, Empty, ErrorState, Field, ListItem, Loading, Note, Tabs, Templates, ToggleRow, Txt } from '../ui';
 import { Expandable, GuideSteps, HelpBits } from '../guide';
-import { AddPanel, askDelete, MessageList, NameField, NameList, useBotChange } from '../editors';
+import { AddPanel, askDelete, MessageList, NameField, NameList, PresetOrNumber, useBotChange } from '../editors';
 import { num, Visitors, WatchList, XYZ } from './common';
+import { coordsOk } from './position';
+
+/** gewählte Stelle in Worten + Zahlen (oder Hinweis, wie man sie bekommt) */
+function SpotPicked({ x, y, z }: { x: string; y?: string; z: string }) {
+  const has = !!x.trim() && !!z.trim();
+  return has ? (
+    <Txt style={[T.sub, { color: C.green, fontWeight: '700' }]}>✅ {t('places.picked')} <Txt style={{ writingDirection: 'ltr' }}>{`X ${x}${y !== undefined ? ` · Y ${y || 0}` : ''} · Z ${z}`}</Txt></Txt>
+  ) : (
+    <Txt style={T.sub}>{t('places.useBotHint')}</Txt>
+  );
+}
 
 type P = { d: BotDetail };
 const sOf = (d: BotDetail) => d.settings as ModSettings;
@@ -176,7 +187,7 @@ function ModerationList({ d, tab }: P & { tab: Exclude<RulesTab, 'words'> }) {
       <View style={{ gap: S.sm }}>
         <Txt style={T.callout}>{t('rules.mutedSub')}</Txt>
         {m.mutes.map((x) => (
-          <ListItem key={x.id} emoji="🤐" title={`@${x.username}`} sub={[x.muted_by ? t('rules.by', { name: x.muted_by }) : null, relTime(x.created_at, now)].filter(Boolean).join(' · ')}
+          <ListItem key={x.id} emoji="🤐" title={at(x.username)} sub={[x.muted_by ? t('rules.by', { name: x.muted_by }) : null, relTime(x.created_at, now)].filter(Boolean).join(' · ')}
             right={<Button label={t('rules.unmute')} small variant="success" loading={busy} onPress={() => run(() => mod.unmute(id, x.username), t('rules.unmuted'))} />} />
         ))}
       </View>
@@ -188,7 +199,7 @@ function ModerationList({ d, tab }: P & { tab: Exclude<RulesTab, 'words'> }) {
       <View style={{ gap: S.sm }}>
         <Txt style={T.callout}>{t('rules.warnsSub')}</Txt>
         {m.warns.map((x) => (
-          <ListItem key={x.username} emoji="⚠️" title={`@${x.username}`} sub={t('rules.warnCount', { n: x.count })}
+          <ListItem key={x.username} emoji="⚠️" title={at(x.username)} sub={t('rules.warnCount', { n: x.count })}
             right={<Button label={t('rules.clear')} small variant="secondary" loading={busy}
               onPress={async () => { if (await confirm(t('rules.clearQ', { name: x.username }), '', t('rules.clear'), false)) run(() => mod.clearWarns(id, x.username), t('rules.cleared')); }} />} />
         ))}
@@ -200,7 +211,7 @@ function ModerationList({ d, tab }: P & { tab: Exclude<RulesTab, 'words'> }) {
   return (
     <View style={{ gap: S.sm }}>
       <Txt style={T.callout}>{t('rules.reportsSub')}</Txt>
-      {m.bans_count ? <Note emoji="⛔" text={t('rules.bans', { n: m.bans_count })} /> : null}
+      {m.bans_count ? <Note emoji="⛔" text={m.bans_count === 1 ? t('rules.bans1') : t('rules.bans', { n: m.bans_count })} /> : null}
       {reports.map((r) => (
         <ListItem
           key={r.id}
@@ -247,7 +258,7 @@ function Spots({ d }: P) {
   const [x, setX] = useState('');
   const [y, setY] = useState('');
   const [z, setZ] = useState('');
-  const ok = !!name.trim() && [x, y, z].every((v) => Number.isFinite(num(v)));
+  const ok = !!name.trim() && coordsOk({ x, y, z });
   const useBot = () => { const p = s.position; setX(String(p.x)); setY(String(p.y)); setZ(String(p.z)); };
   const have = new Set(s.destinations.map((x) => x.name));
   return (
@@ -269,9 +280,13 @@ function Spots({ d }: P) {
         <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>{t('places.who')}</Txt>
         <Choice<MinRole> value={who} onChange={setWho} options={MIN_ROLES.map((r) => ({ value: r, label: t(`who.${r}` as Key), emoji: MINROLE_EMOJI[r] }))} />
         <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>{t('places.where')}</Txt>
-        <Button label={t('places.useBot')} small variant="secondary" emoji="🤖" onPress={useBot} testID="spot-usebot" />
-        <XYZ x={x} y={y} z={z} setX={setX} setY={setY} setZ={setZ} testID="spot" />
+        {/* einfach: Bot vorher an die Stelle holen („Wo er steht“), dann seinen Platz übernehmen; Zahlen nur für Experten */}
+        <Button label={t('places.useBot')} variant="secondary" emoji="🤖" onPress={useBot} testID="spot-usebot" />
+        <SpotPicked x={x} y={y} z={z} />
         <Expandable title={t('common.showMe')} emoji="👀"><GuideSteps guide="spot" /></Expandable>
+        <Expandable title={t('places.typeNumbers')} emoji="🧰" testID="spot-numbers">
+          <XYZ x={x} y={y} z={z} setX={setX} setY={setY} setZ={setZ} testID="spot" />
+        </Expandable>
         <Button label={t('common.add')} icon="add" disabled={!ok} loading={busy} testID="spot-save"
           onPress={async () => {
             if (await run(() => mod.addDestination(id, { name: name.trim().toLowerCase(), x: num(x), y: num(y), z: num(z), min_role: who }))) {
@@ -295,7 +310,7 @@ function VipZones({ d }: P) {
   const [x, setX] = useState('');
   const [z, setZ] = useState('');
   const [size, setSize] = useState<number>(4);
-  const ok = !!name.trim() && Number.isFinite(num(x)) && Number.isFinite(num(z));
+  const ok = !!name.trim() && coordsOk({ x, z });
   const sizeWord = (r: number) => t((SIZES.find((q) => q.r >= r) ?? SIZES[2]).k);
   return (
     <View style={{ gap: S.sm }}>
@@ -316,8 +331,11 @@ function VipZones({ d }: P) {
         <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>{t('places.size')}</Txt>
         <Choice<number> value={size} onChange={setSize} columns={3} options={SIZES.map((q) => ({ value: q.r, label: t(q.k), emoji: q.r === 2 ? '🔹' : q.r === 4 ? '🔷' : '🟦' }))} />
         <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>{t('places.middle')}</Txt>
-        <Button label={t('places.useBot')} small variant="secondary" emoji="🤖" onPress={() => { setX(String(s.position.x)); setZ(String(s.position.z)); }} />
-        <XYZ noY x={x} z={z} setX={setX} setZ={setZ} testID="vip" />
+        <Button label={t('places.useBot')} variant="secondary" emoji="🤖" onPress={() => { setX(String(s.position.x)); setZ(String(s.position.z)); }} testID="vip-usebot" />
+        <SpotPicked x={x} z={z} />
+        <Expandable title={t('places.typeNumbers')} emoji="🧰" testID="vip-numbers">
+          <XYZ noY x={x} z={z} setX={setX} setZ={setZ} testID="vip" />
+        </Expandable>
         <Button label={t('common.add')} icon="add" disabled={!ok} loading={busy} testID="vip-save"
           onPress={async () => {
             if (await run(() => mod.addVipZone(id, { name: name.trim(), x: num(x), z: num(z), radius: size }))) {
@@ -350,9 +368,18 @@ export function ModLook({ d }: P) {
       {rotate ? (
         <>
           <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>{t('look.every')}</Txt>
-          <Choice<number> columns={4} value={INTERVALS.includes(interval) ? interval : null}
-            onChange={(v) => run(() => mod.setOutfitSettings(id, { interval_minutes: v }))}
-            options={INTERVALS.map((m) => ({ value: m, label: m === 60 ? t('time.hour1') : t('time.mins', { n: m }) }))} />
+          <PresetOrNumber
+            testID="look-every"
+            value={interval}
+            busy={busy}
+            onPick={(v) => run(() => mod.setOutfitSettings(id, { interval_minutes: v }))}
+            presets={INTERVALS.map((m) => ({ value: m, label: m === 60 ? t('time.hour1') : t('time.mins', { n: m }) }))}
+            fieldLabel={t('look.everyCustom')}
+            min={1}
+            max={10080}
+            badText={t('look.everyBad')}
+            fmt={(n) => t('time.mins', { n })}
+          />
         </>
       ) : null}
       {outfits.length === 0 ? <Empty emoji="👕" title={t('look.empty')} text={t('look.emptyText')} /> : null}
@@ -369,28 +396,6 @@ export function ModLook({ d }: P) {
   );
 }
 
-// ---------------------------------------------------------------- Gold des Bots (nur Anzeige, wie die Karte „Bot Wallet“)
-export function BotGold({ wallet, cmd }: { wallet?: BotWallet; cmd: string }) {
-  if (!wallet) return null;
-  const known = wallet.gold != null;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, padding: S.md }} testID="bot-gold">
-      <Txt style={{ fontSize: 28 }} maxFontSizeMultiplier={1.2}>🪙</Txt>
-      <View style={{ flex: 1 }}>
-        <Txt style={[T.sub, { color: C.text2 }]}>{t('botgold.title')}</Txt>
-        {known ? (
-          <Txt style={[T.headline, { color: C.gold }]}>
-            {fmtNum(wallet.gold!)} {t('wallet.gold')}
-            {wallet.updated_at ? <Txt style={T.caption}>{`  · ${t('botgold.updated', { when: relTime(wallet.updated_at) })}`}</Txt> : null}
-          </Txt>
-        ) : (
-          <Txt style={T.sub}>{t('botgold.none', { cmd })}</Txt>
-        )}
-      </View>
-    </View>
-  );
-}
-
 // ---------------------------------------------------------------- Aktivität
 type ActTab = 'visitors' | 'watch' | 'log' | 'guests';
 export function ModActivity({ d }: P) {
@@ -400,7 +405,6 @@ export function ModActivity({ d }: P) {
   const guests = sOf(d).guests ?? [];
   return (
     <>
-      <BotGold wallet={sOf(d).wallet} cmd="!wallet" />
       <Tabs<ActTab>
         value={tab}
         onChange={setTab}
@@ -416,7 +420,7 @@ export function ModActivity({ d }: P) {
           <View style={{ gap: S.sm }}>
             {logs.map((l) => (
               <ListItem key={l.id} emoji={l.action === 'ban' ? '⛔' : l.action === 'kick' ? '👢' : l.action === 'mute' ? '🤐' : l.action === 'warn' ? '⚠️' : '🛡️'}
-                title={t('activity.logLine', { who: l.done_by ?? '?', what: actionWord(l.action), target: l.target ?? '' })}
+                title={t('activity.logLine', { who: !l.done_by || l.done_by === 'bot' ? `🤖 ${t('activity.bot')}` : `‎@${l.done_by}`, what: actionWord(l.action), target: l.target ?? '' })}
                 sub={[l.reason, relTime(l.created_at, now)].filter(Boolean).join(' · ')} />
             ))}
           </View>
@@ -424,7 +428,7 @@ export function ModActivity({ d }: P) {
       ) : guests.length === 0 ? <Empty emoji="🫥" title={t('activity.guestsEmpty')} /> : (
         <View style={{ gap: S.sm }}>
           <Txt style={T.callout}>{t('activity.guestsSub')}</Txt>
-          {guests.map((g) => <ListItem key={g.username} emoji="🙋" title={`@${g.username}`} sub={g.first_seen ? t('activity.firstSeen', { when: relTime(g.first_seen, now) }) : null} />)}
+          {guests.map((g) => <ListItem key={g.username} emoji="🙋" title={at(g.username)} sub={g.first_seen ? t('activity.firstSeen', { when: relTime(g.first_seen, now) }) : null} />)}
         </View>
       )}
     </>

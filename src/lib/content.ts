@@ -51,7 +51,7 @@ const en: Pack = {
     },
     link: {
       title: 'Connect your Highrise account',
-      steps: ['🚪 Tap “Open the room” – Highrise opens.', '💬 Write anything in the chat, e.g. “hi”.', '🤫 The bot whispers you a code with 6 letters.', '↩️ Come back here and type the code.'],
+      steps: ['🚪 Tap “Open the room” – Highrise opens.', '💬 Write anything in the chat, e.g. “hi”.', '🤫 The bot whispers you a code (6 letters and numbers).', '↩️ Come back here and type the code.'],
     },
     vipzone: {
       title: 'Make a VIP area the easy way',
@@ -59,11 +59,11 @@ const en: Pack = {
     },
     spot: {
       title: 'Find the numbers of a spot',
-      steps: ['🤖 Tap “Use the bot’s spot” to copy where the bot stands.', '🚶 Or: walk there in Highrise and type !posbot – the bot comes to you.', '🔄 Then come back here and tap “Use the bot’s spot”.'],
+      steps: ['🚶 Walk to the spot in your Highrise room.', '📍 Bot page → “Where it stands” → “Bring the bot to me” (or type -here in the chat). The bot comes to you.', '🤖 Come back here and tap “Use the bot’s spot”.'],
     },
     stand: {
-      title: 'Move the bot the easy way',
-      steps: ['📱 Go into your room in Highrise.', '🚶 Stand where the bot should stand.', '💬 Type the chat word below.', '✅ The bot walks to you.'],
+      title: 'Move the bot to a new spot',
+      steps: ['📱 Go into your room in Highrise.', '🚶 Stand where the bot should stand.', '📍 In the app: open the bot → “Where it stands” → tap “Bring the bot to me”.', '💬 Or type -here in the room chat.', '✅ The bot walks to you and remembers the spot.'],
     },
     register: {
       title: 'Make an account',
@@ -71,7 +71,7 @@ const en: Pack = {
     },
     newBot: {
       title: 'Make a new bot',
-      steps: ['➕ On the Bots page tap “New”.', '🤖 Pick what the bot should do.', '🏷️ Give it a name.', '🔑 Paste the bot key from Highrise.', '🔗 Paste your room link.', '🚪 Let the bot into your room (Designer).', '✅ Done! The bot is saved and still off.'],
+      steps: ['➕ On the Bots page tap “New”.', '🤖 Pick what the bot should do.', '🏷️ Give it a name.', '🔗 Paste your room link.', '🔑 Paste the bot key from Highrise.', '🚪 Let the bot into your room (Designer).', '✅ Done! If it has time left, it goes into your room right away.'],
     },
     startStop: {
       title: 'Turn a bot on and off',
@@ -124,6 +124,8 @@ const en: Pack = {
     { q: 'How do I add my own songs to the DJ?', a: 'In the DJ’s Expert settings under “My songs”.', guide: 'djSongs' },
     { q: 'How do I hear my radio?', a: 'Open your DJ → Music → “Listen here”. Or Account → My radios.', guide: 'radio' },
     { q: 'How do I change my password?', a: 'Account → Change password.', guide: 'password' },
+    { q: 'How do I move my bot to another spot?', a: 'Stand on the spot in your room. Then open the bot → “Where it stands” → “Bring the bot to me”. Or type -here in the room chat.', guide: 'stand' },
+    { q: 'What is “Bot gold”?', a: 'The gold your bot has in Highrise. You can only look at it here.' },
   ],
   fix: {
     designer: 'The bot has no Designer rights in your room',
@@ -160,11 +162,11 @@ const de: Pack = {
     },
     spot: {
       title: 'Die Zahlen einer Stelle finden',
-      steps: ['🤖 Tippe auf „Platz vom Bot nehmen“ – dann zählt, wo der Bot steht.', '🚶 Oder: Geh in Highrise hin und schreib !posbot – der Bot kommt zu dir.', '🔄 Dann komm zurück und tippe auf „Platz vom Bot nehmen“.'],
+      steps: ['🚶 Geh in deinem Highrise-Raum an die Stelle.', '📍 Bot-Seite → „Wo er steht“ → „Bot zu mir holen“ (oder schreib -here in den Chat). Der Bot kommt zu dir.', '🤖 Komm zurück und tippe auf „Platz vom Bot nehmen“.'],
     },
     stand: {
-      title: 'Bot ganz einfach bewegen',
-      steps: ['📱 Geh in Highrise in deinen Raum.', '🚶 Stell dich dahin, wo der Bot stehen soll.', '💬 Schreib das Chat-Wort unten.', '✅ Der Bot läuft zu dir.'],
+      title: 'Bot an eine neue Stelle bringen',
+      steps: ['📱 Geh in Highrise in deinen Raum.', '🚶 Stell dich dahin, wo der Bot stehen soll.', '📍 In der App: Bot öffnen → „Wo er steht“ → „Bot zu mir holen“ tippen.', '💬 Oder schreib -here in den Raum-Chat.', '✅ Der Bot läuft zu dir und merkt sich die Stelle.'],
     },
     register: {
       title: 'Ein Konto machen',
@@ -172,7 +174,7 @@ const de: Pack = {
     },
     newBot: {
       title: 'Einen neuen Bot machen',
-      steps: ['➕ Tippe auf der Bots-Seite auf „Neu“.', '🤖 Such aus, was der Bot machen soll.', '🏷️ Gib ihm einen Namen.', '🔑 Füg den Bot-Schlüssel von Highrise ein.', '🔗 Füg deinen Raum-Link ein.', '🚪 Lass den Bot in deinen Raum (Designer).', '✅ Fertig! Der Bot ist gespeichert und noch aus.'],
+      steps: ['➕ Tippe auf der Bots-Seite auf „Neu“.', '🤖 Such aus, was der Bot machen soll.', '🏷️ Gib ihm einen Namen.', '🔗 Füg deinen Raum-Link ein.', '🔑 Füg den Bot-Schlüssel von Highrise ein.', '🚪 Lass den Bot in deinen Raum (Designer).', '✅ Fertig! Hat er noch Zeit, geht er gleich in deinen Raum.'],
     },
     startStop: {
       title: 'Bot an- und ausschalten',
@@ -225,6 +227,8 @@ const de: Pack = {
     { q: 'Wie füge ich eigene Lieder zum DJ hinzu?', a: 'In den Experten-Einstellungen des DJs unter „Meine Lieder“.', guide: 'djSongs' },
     { q: 'Wie höre ich mein Radio?', a: 'Öffne deinen DJ → Musik → „Hier anhören“. Oder Konto → Meine Radios.', guide: 'radio' },
     { q: 'Wie ändere ich mein Passwort?', a: 'Konto → Passwort ändern.', guide: 'password' },
+    { q: 'Wie stelle ich meinen Bot an eine andere Stelle?', a: 'Stell dich in deinem Raum an die Stelle. Dann Bot öffnen → „Wo er steht“ → „Bot zu mir holen“. Oder schreib -here in den Raum-Chat.', guide: 'stand' },
+    { q: 'Was ist „Bot-Gold“?', a: 'Das Gold, das dein Bot in Highrise hat. Hier kannst du es nur ansehen.' },
   ],
   fix: {
     designer: 'Der Bot hat keine Designer-Rechte in deinem Raum',
@@ -261,11 +265,11 @@ const ar: Pack = {
     },
     spot: {
       title: 'اعرف أرقام المكان',
-      steps: ['🤖 اضغط «خذ مكان البوت» لتنسخ مكان وقوف البوت.', '🚶 أو: امشِ إلى هناك في Highrise واكتب ‎!posbot‎ – سيأتي البوت إليك.', '🔄 ثم ارجع إلى هنا واضغط «خذ مكان البوت».'],
+      steps: ['🚶 امشِ إلى المكان في غرفتك في Highrise.', '📍 صفحة البوت ← «أين يقف» ← «أحضر البوت إليّ» (أو اكتب ‎-here‎ في الدردشة). يأتي البوت إليك.', '🤖 ارجع إلى هنا واضغط «خذ مكان البوت».'],
     },
     stand: {
-      title: 'حرّك البوت بسهولة',
-      steps: ['📱 ادخل غرفتك في Highrise.', '🚶 قف حيث تريد أن يقف البوت.', '💬 اكتب كلمة الدردشة في الأسفل.', '✅ يمشي البوت إليك.'],
+      title: 'انقل البوت إلى مكان جديد',
+      steps: ['📱 ادخل غرفتك في Highrise.', '🚶 قف حيث تريد أن يقف البوت.', '📍 في التطبيق: افتح البوت ← «أين يقف» ← اضغط «أحضر البوت إليّ».', '💬 أو اكتب ‎-here‎ في دردشة الغرفة.', '✅ يمشي البوت إليك ويتذكر المكان.'],
     },
     register: {
       title: 'أنشئ حسابًا',
@@ -273,7 +277,7 @@ const ar: Pack = {
     },
     newBot: {
       title: 'اصنع بوتًا جديدًا',
-      steps: ['➕ في صفحة البوتات اضغط «جديد».', '🤖 اختر ماذا يفعل البوت.', '🏷️ أعطه اسمًا.', '🔑 الصق مفتاح البوت من Highrise.', '🔗 الصق رابط غرفتك.', '🚪 دع البوت يدخل غرفتك (Designer).', '✅ انتهى! البوت محفوظ وما زال مطفأ.'],
+      steps: ['➕ في صفحة البوتات اضغط «جديد».', '🤖 اختر ماذا يفعل البوت.', '🏷️ أعطه اسمًا.', '🔗 الصق رابط غرفتك.', '🔑 الصق مفتاح البوت من Highrise.', '🚪 دع البوت يدخل غرفتك (Designer).', '✅ انتهى! إذا كان لديه وقت، يدخل غرفتك فورًا.'],
     },
     startStop: {
       title: 'تشغيل البوت وإطفاؤه',
@@ -299,7 +303,7 @@ const ar: Pack = {
     token: 'يعطي Highrise كل بوت مفتاحًا خاصًا به. به يستطيع البوت الدخول. نحفظه بأمان ولا نعرضه مرة أخرى.',
     designer: 'بدون صلاحية Designer لا يسمح Highrise للبوت بالدخول.',
     messages: 'هذا ما يقوله البوت للضيوف الجدد.',
-    owner: 'صاحب الغرفة يستطيع استخدام كل كلمات الدردشة.',
+    owner: 'زعيم الغرفة يستطيع استخدام كل كلمات الدردشة.',
   },
   greetings: ['أهلًا {username}! 🎉', 'هلا {username}، استمتع! 👋', 'سعداء برؤيتك يا {username} ✨', 'مرحبًا {username}! استمتع بالموسيقى 🎶', 'وصل {username}! 🥳', 'أهلًا بعودتك يا {username} 💜'],
   announcements: ['🎶 اطلب أغنية بكتابة ‎-play‎ واسم الأغنية', '💜 كن لطيفًا مع الجميع!', '📸 التقط صورة وشارك الغرفة!', '⭐ تابع صاحب الغرفة لحفلات أكثر'],
@@ -326,6 +330,8 @@ const ar: Pack = {
     { q: 'كيف أضيف أغانيّ إلى الـ DJ؟', a: 'في إعدادات الخبراء للـ DJ تحت «أغانيّ».', guide: 'djSongs' },
     { q: 'كيف أسمع الراديو الخاص بي؟', a: 'افتح الـ DJ ← الموسيقى ← «استمع هنا». أو الحساب ← إذاعاتي.', guide: 'radio' },
     { q: 'كيف أغيّر كلمة المرور؟', a: 'الحساب ← تغيير كلمة المرور.', guide: 'password' },
+    { q: 'كيف أنقل البوت إلى مكان آخر؟', a: 'قف في المكان داخل غرفتك. ثم افتح البوت ← «أين يقف» ← «أحضر البوت إليّ». أو اكتب ‎-here‎ في دردشة الغرفة.', guide: 'stand' },
+    { q: 'ما هو «ذهب البوت»؟', a: 'الذهب الذي يملكه البوت في Highrise. يمكنك هنا مشاهدته فقط.' },
   ],
   fix: {
     designer: 'البوت ليس لديه صلاحية Designer في غرفتك',

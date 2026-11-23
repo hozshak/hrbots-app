@@ -6,7 +6,7 @@ import type {
   ActionResult, AdminResult, AnnouncementsResult, AutoplayFile, AutoplayList, BannedAction, BannedWordResult, Bot, BotDetail, BotKind,
   ChatMessage, CommandResult, CreateBotInput, DestinationResult, DiscordInfo, DiscordWebLink, HighriseLink, InviteInfo, LoginResult, Me,
   MessageResult, MinRole, ModOutfit, ModRole, ModWelcomeResult, MusicAction, MusicRecentCommand, MusicRole, MusicSettingsResult, MusicTicket, Ok,
-  PowerAction, PresenceEvent, RadioStation, RadioStatus, RegisterInput, RegisterResult, RoleResult, SupportReply, SupportTicket,
+  PositionToMeResult, PowerAction, PresenceEvent, RadioStation, RadioStatus, RegisterInput, RegisterResult, RoleResult, SupportReply, SupportTicket,
   SupportTicketDetail, TrackedUser, UpdateBotInput, UpdateBotResult, VipZone, Wallet,
 } from './types';
 
@@ -77,6 +77,10 @@ export const bots = {
   logs: async (kind: BotKind, id: number) => (await request<{ lines: string[] }>('GET', `/bots/${kind}/${id}/logs`)).lines,
   presence: async (kind: BotKind, id: number) =>
     (await request<{ events: PresenceEvent[] }>('GET', `/bots/${kind}/${id}/presence`)).events,
+  /** „Bot zu mir holen“: der laufende Bot geht zur Highrise-Figur des Besitzers und speichert die Stelle (kein Body).
+   *  409 not_running / highrise_not_linked / bot_not_in_room · 404 owner_not_in_room · 504 timeout · 502 agent_error */
+  positionToMe: async (kind: BotKind, id: number) =>
+    (await request<PositionToMeResult>('POST', `/bots/${kind}/${id}/position/to_me`)).position,
 };
 
 const withTarget = (target_username?: string) => (target_username ? { target_username } : {});

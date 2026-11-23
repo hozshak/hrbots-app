@@ -43,7 +43,7 @@ export default function NewTicket() {
   };
   return (
     <Screen back keyboard title={`✉️ ${t('tickets2.new')}`} testID="ticket-form">
-      <Field label={t('tickets2.subject')} value={subject} onChangeText={setSubject} maxLength={EXTRA_LIMITS.ticketSubject} testID="ticket-subject" />
+      <Field label={t('tickets2.subject')} value={subject} onChangeText={setSubject} maxLength={EXTRA_LIMITS.ticketSubject} autoCorrect autoCapitalize="sentences" returnKeyType="next" testID="ticket-subject" />
       <Templates items={content.subjects} onPick={setSubject} />
       {botList.length ? (
         <>
@@ -60,6 +60,8 @@ export default function NewTicket() {
         value={body}
         onChangeText={setBody}
         multiline
+        autoCorrect
+        autoCapitalize="sentences"
         maxLength={EXTRA_LIMITS.ticketBody}
         placeholder={t('tickets2.messagePh')}
         hint={body.trim().length < EXTRA_LIMITS.ticketBodyMin ? t('tickets2.min', { n: EXTRA_LIMITS.ticketBodyMin }) : null}

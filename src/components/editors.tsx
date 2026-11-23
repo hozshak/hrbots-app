@@ -1,6 +1,6 @@
 // Wiederverwendbare Listen-Bearbeiter: Namen (Helfer, VIPs …) und Nachrichten.
 // Muster überall gleich: großer „+“-Knopf → kleines Formular erscheint; Mülleimer mit Nachfrage; Antippen = bearbeiten.
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { cleanUsername, isUsername, INPUT_LIMITS, type BotKind } from '@/api';
 import { keys, queryClient } from '@/lib/query';
@@ -8,7 +8,8 @@ import { errorText, t } from '@/lib/i18n';
 import { confirm, haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { C, R, S, T } from '@/lib/theme';
-import { AddButton, AppSwitch, Button, Empty, Field, ListItem, Templates, Txt } from './ui';
+import { AddButton, AppSwitch, Button, Choice, Empty, Field, ListItem, Templates, Txt } from './ui';
+import { at } from '@/lib/format';
 import { animateLayout } from './guide';
 
 /** Änderung an einem Bot ausführen: Fehler als Meldung, danach Bot-Daten neu laden. */
@@ -66,6 +67,8 @@ export function NameField({ value, onChange, onSubmit, label, autoFocus, testID 
       onChangeText={onChange}
       placeholder={t('common.usernamePh')}
       autoCapitalize="none"
+      autoComplete="off"
+      ltr
       maxLength={INPUT_LIMITS.username + 1}
       returnKeyType="done"
       onSubmitEditing={onSubmit}
@@ -99,9 +102,9 @@ export function NameList({ names, onAdd, onRemove, addLabel, emptyEmoji = '🙋'
           <ListItem
             key={n}
             emoji="🙂"
-            title={`@${n}`}
+            title={at(n)}
             onDelete={async () => {
-              if (await askDelete(`@${n}`)) onRemove(n);
+              if (await askDelete(at(n))) onRemove(n);
             }}
           />
         ))
@@ -166,8 +169,9 @@ export function MessageList({ items, templates, addLabel, onAdd, onDelete, onTog
             key={m.id}
             emoji={m.active === false ? '💤' : '💬'}
             title={m.text}
+            freeText
             muted={m.active === false}
-            sub={m.target ? t('say.onlyFor', { user: m.target }) : m.active === false ? t('say.paused') : null}
+            sub={[m.target ? t('say.onlyFor', { user: m.target }) : null, m.active === false ? t('say.paused') : null].filter(Boolean).join(' · ') || null}
             onPress={onSave ? () => { setEditText(m.text); setEditing(m.id); } : undefined}
             right={onToggle ? <AppSwitch value={m.active !== false} onChange={(v) => onToggle(m, v)} label={m.text} /> : null}
             onDelete={async () => {
@@ -185,6 +189,58 @@ export function MessageList({ items, templates, addLabel, onAdd, onDelete, onTog
         ) : null}
         <Button label={t('common.add')} icon="add" onPress={() => add()} disabled={!text.trim() || targetBad} loading={busy} testID="msg-save" />
       </AddPanel>
+    </View>
+  );
+}
+
+/** Feste Auswahl (große Knöpfe) + „Andere …“ mit Zahlenfeld – für Werte, die die Webseite frei einstellen lässt
+ *  (z. B. Outfit-Wechsel in Minuten, Ansagen in Sekunden). Ein Fingertipp auf eine Vorgabe speichert sofort. */
+export function PresetOrNumber({ presets, value, onPick, fieldLabel, min, max, badText, columns = 3, busy, testID, fmt = String }: {
+  presets: { value: number; label: string }[]; value: number; onPick: (v: number) => Promise<unknown> | unknown;
+  fieldLabel: string; min: number; max: number; badText: string; columns?: 2 | 3 | 4; busy?: boolean; testID?: string;
+  /** eigener Wert als Text auf dem „Andere“-Knopf, z. B. „15 Min.“ */
+  fmt?: (v: number) => string;
+}) {
+  const isPreset = presets.some((p) => p.value === value);
+  const [other, setOther] = useState(!isPreset);
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    setText(String(value));
+    if (!presets.some((p) => p.value === value)) setOther(true);
+  }, [value]);
+  const n = Number(text);
+  const ok = /^\d+$/.test(text) && n >= min && n <= max;
+  return (
+    <View style={{ gap: S.sm }}>
+      <Choice<number | 'other'>
+        testID={testID}
+        columns={columns}
+        value={other ? 'other' : value}
+        onChange={(v) => {
+          if (v === 'other') {
+            setOther(true);
+            setText(String(value));
+          } else {
+            setOther(false);
+            if (v !== value) onPick(v);
+          }
+        }}
+        options={[...presets, { value: 'other' as const, label: other && !isPreset ? `✏️ ${fmt(value)}` : `✏️ ${t('common.other')}` }]}
+      />
+      {other ? (
+        <>
+          <Field
+            label={fieldLabel}
+            value={text}
+            onChangeText={(v) => setText(v.replace(/[^0-9]/g, '').slice(0, 6))}
+            keyboardType="number-pad"
+            ltr
+            error={text && !ok ? badText : null}
+            testID={testID ? `${testID}-input` : undefined}
+          />
+          {ok && n !== value ? <Button label={t('common.save')} small loading={busy} onPress={() => onPick(n)} testID={testID ? `${testID}-save` : undefined} /> : null}
+        </>
+      ) : null}
     </View>
   );
 }

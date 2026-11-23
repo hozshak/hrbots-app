@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { t } from '@/lib/i18n';
 import { haptic } from '@/lib/ui';
 import { C, R, S, T } from '@/lib/theme';
@@ -66,7 +67,7 @@ export function StreamPlayer({ url, title, sub, testID }: { url: string; title?:
             backgroundColor: on ? C.red : C.accent, opacity: pressed ? 0.8 : 1,
           })}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Txt style={{ fontSize: 28, color: '#fff' }} maxFontSizeMultiplier={1.2}>{on ? '⏹' : '▶️'}</Txt>}
+          {loading ? <ActivityIndicator color={C.white} /> : <Ionicons name={on ? 'stop' : 'play'} size={32} color={on ? C.white : C.onAccent} style={on ? undefined : { marginStart: 4 }} />}
         </Pressable>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt style={T.headline}>🎧 {title ?? t('player.title')}</Txt>

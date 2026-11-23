@@ -8,7 +8,7 @@ import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, INPUT_LIMITS, type Bot, type BotKind } from '@/api';
 import { keys, powerBot, queryClient } from '@/lib/query';
-import { hasRuntime } from '@/lib/format';
+import { at, hasRuntime } from '@/lib/format';
 import { content, CREATE_HIGHRISE } from '@/lib/content';
 import { errorText, t, type Key } from '@/lib/i18n';
 import { haptic, openUrl } from '@/lib/ui';
@@ -148,7 +148,9 @@ export default function NewBot() {
             </Card>
           ) : null}
           <Button testID="wiz-open-bot" label={t('wiz.openBot')} icon={arrowFwd()} onPress={() => router.replace({ pathname: '/bot/[kind]/[id]', params: { kind: done.bot.kind, id: String(done.bot.id) } })} />
-          <Button label={t('wiz.toHome')} variant="secondary" onPress={() => router.dismissTo('/')} />
+          {/* nächster Schritt: Bot an seinen Platz holen (Seite „Wo er steht“) */}
+          <Button testID="wiz-place-bot" label={t('wiz.placeBot')} emoji="📍" variant="secondary" onPress={() => router.replace({ pathname: '/bot/[kind]/[id]/[page]', params: { kind: done.bot.kind, id: String(done.bot.id), page: 'stand' } })} />
+          <Button label={t('wiz.toHome')} variant="ghost" onPress={() => router.dismissTo('/')} />
         </Animated.View>
       </Screen>
     );
@@ -163,7 +165,7 @@ export default function NewBot() {
         { emoji: '🔑', label: t('wiz.sumKey'), value: `✅ ${t('wiz.sumKeySet')}`, step: 'key' },
         { emoji: '🚪', label: t('wiz.sumDesigner'), value: designer ? `✅ ${t('wiz.sumDesignerYes')}` : `⚠️ ${t('wiz.sumDesignerNo')}`, step: 'designer', warn: !designer },
         ...(kind === 'welcome' ? [{ emoji: '💬', label: t('wiz.sumMessages'), value: String(msgs.length), step: 'messages' as Step }] : []),
-        ...(kind !== 'welcome' ? [{ emoji: '👑', label: t('wiz.sumOwner'), value: owner.trim() ? `@${cleanUsername(owner)}` : '–', step: 'owner' as Step }] : []),
+        ...(kind !== 'welcome' ? [{ emoji: '👑', label: t('wiz.sumOwner'), value: owner.trim() ? at(cleanUsername(owner)) : '–', step: 'owner' as Step }] : []),
       ]
     : [];
 
@@ -258,6 +260,7 @@ export default function NewBot() {
               placeholder="https://high.rs/room?id=…"
               autoCapitalize="none"
               keyboardType="url"
+              ltr
               returnKeyType="next"
               onSubmitEditing={next}
               error={roomError}
@@ -286,6 +289,7 @@ export default function NewBot() {
               autoCapitalize="none"
               textContentType="none"
               autoComplete="off"
+              ltr
               error={token.length > 0 && !tokenOk ? t('wiz.keyBad') : null}
               ok={tokenOk ? t('wiz.keyOk') : null}
               hint={t('wiz.keyPrivate')}

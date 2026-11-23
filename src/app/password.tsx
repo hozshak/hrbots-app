@@ -36,11 +36,11 @@ export default function Password() {
   };
   return (
     <Screen back keyboard title={`🔒 ${t('account.password')}`} testID="password">
-      <Field label={t('password.current')} value={cur} onChangeText={setCur} secureTextEntry autoCapitalize="none" textContentType="password" autoComplete="current-password"
+      <Field label={t('password.current')} value={cur} onChangeText={setCur} secureTextEntry autoCapitalize="none" ltr textContentType="password" autoComplete="current-password"
         returnKeyType="next" onSubmitEditing={() => r2.current?.focus()} error={err} testID="pw-current" />
-      <Field ref={r2} label={t('password.new')} value={next} onChangeText={setNext} secureTextEntry autoCapitalize="none" textContentType="newPassword" autoComplete="new-password"
+      <Field ref={r2} label={t('password.new')} value={next} onChangeText={setNext} secureTextEntry autoCapitalize="none" ltr textContentType="newPassword" autoComplete="new-password"
         returnKeyType="next" onSubmitEditing={() => r3.current?.focus()} error={short ? t('password.short', { n: EXTRA_LIMITS.passwordMin }) : null} testID="pw-new" />
-      <Field ref={r3} label={t('password.again')} value={again} onChangeText={setAgain} secureTextEntry autoCapitalize="none" textContentType="newPassword"
+      <Field ref={r3} label={t('password.again')} value={again} onChangeText={setAgain} secureTextEntry autoCapitalize="none" ltr textContentType="newPassword"
         returnKeyType="done" onSubmitEditing={submit} error={mismatch ? t('password.mismatch') : null} ok={again && !mismatch && !short ? t('password.match') : null} testID="pw-again" />
       <Note emoji="💡" text={t('password.tip')} />
       <Button label={t('password.save')} emoji="✅" onPress={submit} loading={busy} disabled={!ok} testID="pw-save" />

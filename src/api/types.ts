@@ -99,6 +99,17 @@ export interface WelcomeSettings extends CommonSettings, WelcomeExtra {
   admins: string[];
 }
 
+/** POST /bots/:kind/:id/position/to_me → Bot läuft zur Highrise-Figur des Besitzers und merkt sich die Stelle.
+ *  Fehler: 409 not_running · 409 highrise_not_linked · 404 owner_not_in_room · 409 bot_not_in_room · 504 timeout · 502 agent_error */
+export interface PositionToMeResult {
+  ok: true;
+  position: Position;
+}
+export type ToMeError = 'not_running' | 'highrise_not_linked' | 'owner_not_in_room' | 'bot_not_in_room' | 'timeout' | 'agent_error';
+
+/** Sinnvolle Grenzen für Koordinaten im Raum (Highrise-Räume beginnen bei 0) – die App prüft vorher */
+export const COORD_LIMITS = { xz: { min: 0, max: 200 }, y: { min: 0, max: 100 } } as const;
+
 export type ModRole = 'admin' | 'moderator' | 'vip';
 export const MOD_ROLES: ModRole[] = ['admin', 'moderator', 'vip'];
 export type BannedAction = 'warn' | 'mute' | 'kick' | 'ban';
@@ -273,6 +284,8 @@ export interface ModModeration {
 export interface WelcomeExtra {
   engine?: BotEngine;
   tracking?: TrackedUser[];
+  /** Gold des Begrüßers im Raum – nur Anzeige; `null`, bis der Bot es einmal gemeldet hat */
+  wallet?: BotWallet | null;
 }
 export interface ModExtra {
   engine?: BotEngine;
@@ -284,7 +297,7 @@ export interface ModExtra {
   vip?: { price?: number; safe_spot: { x: number; y: number; z: number } | null; zones: VipZone[] };
   outfits?: { rotate: boolean; interval_minutes: number; list: ModOutfit[] };
   /** Gold des Bots im Raum (per !wallet aktualisiert) – nur Anzeige */
-  wallet?: BotWallet;
+  wallet?: BotWallet | null;
 }
 export interface MusicTicket { username: string; tickets: number }
 export interface MusicExtra {
@@ -293,7 +306,7 @@ export interface MusicExtra {
   icecast?: { host: string; port: number; user: string; mount: string; password_set: boolean } | null;
   tickets?: MusicTicket[];
   /** Gold des DJ-Bots im Raum (per -musicwallet aktualisiert) – nur Anzeige */
-  wallet?: BotWallet;
+  wallet?: BotWallet | null;
 }
 
 export interface MusicRecentCommand {

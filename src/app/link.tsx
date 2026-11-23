@@ -5,9 +5,10 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { account, ApiError, EXTRA_LIMITS } from '@/api';
 import { keys, queryClient } from '@/lib/query';
-import { content, LINK_ROOM } from '@/lib/content';
+import { LINK_ROOM } from '@/lib/content';
 import { errorText, t } from '@/lib/i18n';
-import { haptic, openUrl } from '@/lib/ui';
+import { at } from '@/lib/format';
+import { haptic, openRoom } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { C, mono, S, T } from '@/lib/theme';
 import { Button, Card, Empty, Field, goBack, Loading, PasteButton, Screen, Txt } from '@/components/ui';
@@ -44,7 +45,7 @@ export default function Link() {
         <Loading />
       ) : q.data?.linked ? (
         <>
-          <Empty emoji="✅" title={t('link.already')} text={`@${q.data.highrise_username ?? ''}`} />
+          <Empty emoji="✅" title={t('link.already')} text={at(q.data.highrise_username ?? '')} />
           <Button label={t('common.done')} onPress={() => goBack('/account')} />
         </>
       ) : (
@@ -52,7 +53,7 @@ export default function Link() {
           <Txt style={T.callout}>{t('link.sub')}</Txt>
           <Card style={{ gap: S.md }}>
             <GuideSteps guide="link" />
-            <Button label={t('link.openRoom')} emoji="🚪" variant="secondary" onPress={() => openUrl(LINK_ROOM)} testID="link-room" />
+            <Button label={t('link.openRoom')} emoji="🚪" variant="secondary" onPress={() => openRoom(LINK_ROOM)} testID="link-room" />
           </Card>
           <Field
             label={t('link.code')}
@@ -61,6 +62,9 @@ export default function Link() {
             placeholder="ABC234"
             autoCapitalize="characters"
             autoCorrect={false}
+            autoComplete="one-time-code"
+            textContentType="oneTimeCode"
+            ltr
             maxLength={8}
             big
             error={err}
@@ -77,7 +81,6 @@ export default function Link() {
             ))}
           </View>
           <Button label={t('link.connect')} emoji="🔗" onPress={submit} loading={busy} disabled={clean.length !== EXTRA_LIMITS.linkCode} testID="link-save" />
-          <Txt style={[T.caption, { textAlign: 'center' }]}>{content.guides.link.title}</Txt>
         </>
       )}
     </Screen>

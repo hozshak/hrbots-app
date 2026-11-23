@@ -1,6 +1,7 @@
 // Welche Kacheln (Seiten) jede Bot-Art im Bot-Menü hat – kurz, je eine Aufgabe. „Experten-Einstellungen“ kommt extra.
-import type { BotDetail, BotKind, ModSettings, MusicSettings, WelcomeSettings } from '@/api';
+import type { BotDetail, BotKind, Facing, ModSettings, MusicSettings, WelcomeSettings } from '@/api';
 import { t, type Key } from '@/lib/i18n';
+import { PAGE_TINT } from '@/lib/theme';
 
 export type PageKey = 'say' | 'helpers' | 'watch' | 'rules' | 'places' | 'look' | 'music' | 'tickets' | 'stand' | 'activity' | 'help' | 'expert';
 
@@ -15,10 +16,10 @@ export const PAGE_EMOJI: Record<PageKey, string> = {
   stand: '📍', activity: '📋', help: '❓', expert: '🧰',
 };
 
-export const PAGE_COLOR: Record<PageKey, string> = {
-  say: '#7c8cff', helpers: '#2fd27f', watch: '#4fb3ff', rules: '#ff6b78', places: '#ffb13b', look: '#e46cff', music: '#e46cff',
-  tickets: '#ffcf4a', stand: '#4fb3ff', activity: '#9aa3b5', help: '#2fd27f', expert: '#9aa3b5',
-};
+export const PAGE_COLOR: Record<PageKey, string> = PAGE_TINT;
+
+/** Pfeil der Blickrichtung (wie im Highrise-Raum von oben gesehen) */
+export const FACING_ARROW: Record<Facing, string> = { BackLeft: '↖', BackRight: '↗', FrontLeft: '↙', FrontRight: '↘' };
 
 export const pageTitle = (p: PageKey) => t(`page.${p}` as Key);
 
@@ -27,6 +28,11 @@ export const isPage = (kind: BotKind, p: string): p is PageKey => p === 'expert'
 /** kleine Zeile unter der Kachel, z. B. „3 Nachrichten“ */
 export function pageSub(d: BotDetail, p: PageKey): string | null {
   const n = (k: Key, count: number) => (count === 1 ? t(`${k}1` as Key) : t(k, { n: count }));
+  // „Wo er steht“: Blickrichtung als Pfeil + Wort
+  if (p === 'stand') {
+    const f = d.settings.position.facing;
+    return `${FACING_ARROW[f]} ${t(`facing.${f}` as Key)}`;
+  }
   if (d.bot.kind === 'welcome') {
     const s = d.settings as WelcomeSettings;
     if (p === 'say') return n('count.messages', s.messages.length);

@@ -15,7 +15,7 @@ import { CommandList } from '@/components/CommandList';
 // „Zeig mir, wie“ – alle Anleitungen der Webseite (How-To), ohne die Abschnitte zum Kaufen/Aufladen/Mieten
 const GUIDES: { key: GuideKey; emoji: string }[] = [
   { key: 'register', emoji: '✨' }, { key: 'newBot', emoji: '➕' }, { key: 'token', emoji: '🔑' }, { key: 'designer', emoji: '🚪' },
-  { key: 'roomLink', emoji: '🔗' }, { key: 'startStop', emoji: '⏯️' }, { key: 'messages', emoji: '👋' }, { key: 'link', emoji: '🤝' },
+  { key: 'roomLink', emoji: '🔗' }, { key: 'startStop', emoji: '⏯️' }, { key: 'stand', emoji: '📍' }, { key: 'messages', emoji: '👋' }, { key: 'link', emoji: '🤝' },
   { key: 'vipzone', emoji: '💎' }, { key: 'djSongs', emoji: '💿' }, { key: 'radio', emoji: '📻' }, { key: 'password', emoji: '🔒' },
 ];
 const CMD_KINDS: CmdKind[] = [...BOT_KINDS, 'bank'];
@@ -49,7 +49,7 @@ export default function Help() {
         <View style={{ gap: S.sm }}>
           <SectionTitle title={t('help.faq')} />
           {faq.map((f) => (
-            <Expandable key={f.q} title={f.q} emoji="💬" open={!!query}>
+            <Expandable key={`${f.q}-${!!query}`} title={f.q} emoji="💬" open={!!query}>
               <View style={{ gap: S.md }}>
                 <Txt style={[T.body, { color: C.text2 }]}>{f.a}</Txt>
                 {f.guide ? <GuideSteps guide={f.guide} /> : null}
@@ -63,7 +63,7 @@ export default function Help() {
         <View style={{ gap: S.sm }}>
           <SectionTitle title={t('help.guides')} />
           {guides.map((g) => (
-            <Expandable key={g.key} title={content.guides[g.key].title} emoji={g.emoji} open={!!query}>
+            <Expandable key={`${g.key}-${!!query}`} title={content.guides[g.key].title} emoji={g.emoji} open={!!query}>
               <GuideSteps guide={g.key} />
             </Expandable>
           ))}
@@ -84,7 +84,12 @@ export default function Help() {
       ) : words.length ? (
         <View style={{ gap: S.sm }}>
           <SectionTitle title={t('help.chatWords')} />
-          {words.map((k) => <CommandList key={k} kind={k} filter={query} />)}
+          {words.map((k) => (
+            <View key={k} style={{ gap: S.sm }}>
+              <Txt style={[T.headline, { fontSize: 16 }]}>{k === 'bank' ? `🤝 ${t('help.bank')}` : `${KIND_EMOJI[k]} ${t(`kind.${k}`)}`}</Txt>
+              <CommandList kind={k} filter={query} />
+            </View>
+          ))}
         </View>
       ) : null}
 

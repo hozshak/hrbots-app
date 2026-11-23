@@ -20,7 +20,7 @@ export function GuideSteps({ guide, steps }: { guide?: GuideKey; steps?: string[
       {list.map((s, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: S.md, alignItems: 'flex-start' }}>
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Txt style={[T.sub, { color: '#fff', fontWeight: '800', textAlign: 'center' }]} maxFontSizeMultiplier={1.2}>{i + 1}</Txt>
+            <Txt style={[T.sub, { color: C.onAccent, fontWeight: '800', textAlign: 'center' }]} maxFontSizeMultiplier={1.2}>{i + 1}</Txt>
           </View>
           <Txt style={[T.body, { flex: 1, lineHeight: 24 }]}>{s}</Txt>
         </View>

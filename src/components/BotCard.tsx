@@ -9,7 +9,7 @@ import { powerBot, usePending } from '@/lib/query';
 import { hasRuntime, timeFraction, timeLeftWords } from '@/lib/format';
 import { openFixIt } from '@/lib/fixit';
 import { t } from '@/lib/i18n';
-import { C, glow, KIND_COLOR, KIND_EMOJI, R, S, T } from '@/lib/theme';
+import { alpha, C, glow, KIND_COLOR, KIND_EMOJI, R, S, T } from '@/lib/theme';
 import { haptic } from '@/lib/ui';
 import { Face, fwdIcon, Pulse, Txt } from './ui';
 
@@ -26,7 +26,7 @@ const LOOK = {
   on: { bg: C.green, fg: C.onAccent, border: C.green, word: 'power.on' as const },
   off: { bg: C.elevated, fg: C.text, border: C.borderStrong, word: 'power.off' as const },
   help: { bg: C.orange, fg: C.onAccent, border: C.orange, word: 'power.help' as const },
-  wait: { bg: C.yellowSoft, fg: C.yellow, border: 'rgba(255,204,68,0.5)', word: 'power.wait' as const },
+  wait: { bg: C.yellowSoft, fg: C.yellow, border: alpha(C.yellow, 0.5), word: 'power.wait' as const },
 };
 
 /** großer AN/AUS-Knopf eines Bots (ganze Breite) */
@@ -134,7 +134,7 @@ export function BotCard({ bot, now, index }: { bot: Bot; now: number; index: num
             </View>
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Txt style={[T.big, { fontSize: 21 }]} numberOfLines={2}>{bot.name}</Txt>
+            <Txt auto style={[T.big, { fontSize: 21 }]} numberOfLines={2}>{bot.name}</Txt>
             <Txt style={[T.sub, { color }]} numberOfLines={1}>{t(`kind.${bot.kind}`)}</Txt>
           </View>
           <Ionicons name={fwdIcon()} size={26} color={C.text3} />

@@ -13,6 +13,11 @@
 //   Einladungen: DEMO-INVITE-1234 (1/1/1 + Gratis-Begrüßer, ohne Discord), DISCORD-INVITE-1234 (mit Discord); einmal benutzbar.
 //   Neu registrierte Konten haben kein Discord, bis „Discord verbinden“ (POST /me/discord/web_link) getippt wurde.
 //   Autoplay-Upload: der Mock bekommt nur Name/Größe ({__file}); > 10 MB / kein .mp3 / 20 Lieder → Fehler wie der Server.
+//   Highrise-Konto: alle Testnamen sind verbunden (als eigener Name), außer „nolink“ und in der App registrierte Konten
+//     → dort Code ABC234 = klappt, USED00 = schon benutzt, TAKEN0 = anderes Konto.
+//   „Bot zu mir holen“ (POST …/position/to_me): Bot aus → 409 not_running · ohne Highrise → 409 highrise_not_linked ·
+//     „Club Guard“ 1. Versuch → 404 owner_not_in_room · „Chill Radio“ 1. → 409 bot_not_in_room, 2. → 504 timeout · sonst klappt es.
+//   Gold des Bots: „Lobby Greeter“ 6, „Club Guard“ 42, „Party Welcome“ wallet null, „Chill Radio“ noch unbekannt (gold null).
 import { ApiError, type Handler, type Method } from './transport';
 import type {
   BannedAction, Bot, BotKind, BotStatus, Facing, MinRole, ModSettings, MusicSettings, Position, WelcomeSettings,
@@ -30,6 +35,8 @@ type MockBot = Bot & {
   agentDownOnce?: boolean;
   /** nächster Start stürzt ab (z. B. fehlende Designer-Rechte) */
   crashOnce?: boolean;
+  /** Testfälle für „Bot zu mir holen“: diese Fehler kommen der Reihe nach, danach klappt es */
+  toMeFails?: { status: number; code: string; message: string }[];
   logs: string[];
   /** Teile, die nicht in GET /bots/:kind/:id stecken */
   recent?: MusicRecentCommand[];
@@ -99,6 +106,7 @@ const db: {
         admins: ['bbos'],
         tracking: [{ id: 61, username: 'k1ra', active: true }],
         engine: 'js',
+        wallet: { gold: 6, updated_at: ago(3) },
       } as WelcomeSettings,
     },
     {
@@ -106,6 +114,7 @@ const db: {
       room_url: 'https://highrise.game/en/room?id=6512aa0b9c8d7e6f5a4b3c2d', status: 'stopped', bot_token_set: true,
       runtime: { unlimited: true, running_until: null, seconds_left: null },
       created_at: '2026-03-13T21:20:00Z', logs: logLines('Club Guard'),
+      toMeFails: [{ status: 404, code: 'owner_not_in_room', message: 'Owner is not in the room' }],
       settings: {
         position: pos(10, 0, 10), owner_username: 'bbos',
         roles: { admin: ['bbos'], moderator: ['mila_x', 'k1ra'], vip: ['dj.nova'] },
@@ -150,12 +159,13 @@ const db: {
       room_url: 'https://high.rs/room?id=65aa77bb88cc99dd00ee11ff', status: 'crashed', bot_token_set: true,
       runtime: { unlimited: false, running_until: null, seconds_left: 45 * 60 },
       created_at: '2026-06-01T18:00:00Z', agentDownOnce: true, crashOnce: true,
+      toMeFails: [{ status: 409, code: 'bot_not_in_room', message: 'Bot is not in the room' }, { status: 504, code: 'timeout', message: 'Bot did not answer in time' }],
       logs: [...logLines('Chill Radio'), `${iso(now() - 60000).replace('T', ' ').slice(0, 19)} ERROR Stream encoder exited with code 1`],
       settings: {
         position: defaultPos('music'), owner_username: '',
         roles: { mod: ['mila_x'], dj: ['dj.nova', 'beatz'], vip: [] },
         blocked: [],
-        announcements: { lines: ['Request songs with !play <song>', 'Skip with !skip (DJs only)'], interval_sec: 600 },
+        announcements: { lines: ['🎶 Wish for a song with -play <song name>', '⏭️ DJs can skip with -skip'], interval_sec: 600 },
         max_song_minutes: 8, autoplay: true,
         stream_url: 'https://radio.highrise-bots.com/mount_1a2b3c4d', icecast_password_set: true,
         icecast: { host: 'radio.highrise-bots.com', port: 8000, user: 'source', mount: 'mount_1a2b3c4d', password_set: true },
@@ -185,6 +195,7 @@ const db: {
         admins: [],
         tracking: [],
         engine: 'js',
+        wallet: null,
       } as WelcomeSettings,
     },
   ],
@@ -193,7 +204,8 @@ const db: {
 // ---- Konto-Teile ----
 const acct = {
   password: 'demo',
-  highrise: { linked: false, highrise_username: null as string | null },
+  /** Highrise-Verknüpfung je Konto (klein geschrieben): Name = verbunden, null = nicht verbunden, fehlt = Standard */
+  highrise: {} as Record<string, string | null>,
   wallet: {
     gold_balance: 302,
     transactions: [
@@ -281,6 +293,12 @@ const hasDiscord = (username: string) => {
   const u = username.toLowerCase();
   return db.discordLinked.has(u) || (u !== 'nodiscord' && !db.registered.has(u));
 };
+/** Highrise-Verknüpfung: Testnamen sind verbunden (eigener Name), außer „nolink“ und in der App registrierte Konten */
+function hrLink(username: string): { linked: boolean; highrise_username: string | null } {
+  const u = username.toLowerCase();
+  const v = u in acct.highrise ? acct.highrise[u] : u === 'nolink' || db.registered.has(u) ? null : u;
+  return { linked: !!v, highrise_username: v ?? null };
+}
 function userFromToken(token: string | null) {
   if (!token || !token.startsWith('mock-')) fail(401, 'unauthorized', 'Missing or invalid bearer token');
   const username = decodeURIComponent(token!.slice(5));
@@ -399,13 +417,13 @@ function power(b: MockBot, action: 'start' | 'stop' | 'restart') {
 function botSettingsFor(kind: BotKind, owner: string, msgs: string[]): AnySettings {
   const position = defaultPos(kind);
   if (kind === 'welcome') {
-    return { position, engine: 'js', messages: msgs.map((m) => ({ id: nextSub++, message: m, target_username: null, active: true, priority: 0 })), admins: [], tracking: [] };
+    return { position, engine: 'js', messages: msgs.map((m) => ({ id: nextSub++, message: m, target_username: null, active: true, priority: 0 })), admins: [], tracking: [], wallet: { gold: null, updated_at: null } };
   }
   if (kind === 'mod') {
     return {
       position, engine: 'js', owner_username: owner, roles: { admin: [], moderator: [], vip: [] }, banned_words: [], welcomes: [], destinations: [], commands: { go: '!go', tp: '!tp' },
       moderation: { mutes: [], warns: [], bans_count: 0, reports: [], logs: [] }, tracking: [], guests: [], vip: { price: 0, safe_spot: null, zones: [] },
-      outfits: { rotate: false, interval_minutes: 10, list: [] },
+      outfits: { rotate: false, interval_minutes: 10, list: [] }, wallet: { gold: null, updated_at: null },
     };
   }
   // wie der Server: jeder neue DJ bekommt ein inklusives Radio (radio.highrise-bots.com, Hörer-Link stream.…)
@@ -474,7 +492,7 @@ const routes: Route[] = [
     acct.replies = {};
     acct.radios = [];
     acct.wallet = { gold_balance: 0, transactions: [] };
-    acct.highrise = { linked: false, highrise_username: null };
+    acct.highrise[u.username.toLowerCase()] = null;
     return { ok: true };
   }],
   ['GET', /^\/bots$/, () => ({ bots: (['welcome', 'mod', 'music'] as BotKind[]).flatMap((k) => db.bots.filter((b) => b.kind === k).sort((a, c) => c.id - a.id).map(publicBot)) })],
@@ -577,6 +595,20 @@ const routes: Route[] = [
   ['POST', r(`\\/bots\\/${KB}\\/(start|stop|restart)`), (m) => power(findBot(m[1], m[2]), m[3] as 'start' | 'stop' | 'restart')],
   ['GET', r(`\\/bots\\/${KB}\\/logs`), (m) => ({ lines: findBot(m[1], m[2]).logs.filter((l) => l !== '').slice(-500) })],
   ['GET', r(`\\/bots\\/${KB}\\/presence`), (m) => ({ events: presenceFor(findBot(m[1], m[2])) })],
+  // „Bot zu mir holen“: Bot läuft zur Figur des Besitzers im Raum und speichert die Stelle (Blickrichtung bleibt)
+  ['POST', r(`\\/bots\\/${KB}\\/position\\/to_me`), (m, _b, u) => {
+    const b = findBot(m[1], m[2]);
+    tick(b);
+    if (b.status !== 'running') fail(409, 'not_running', 'Bot is not running');
+    if (!hrLink(u.username).linked) fail(409, 'highrise_not_linked', 'Link your Highrise account first');
+    const f = b.toMeFails?.shift();
+    if (f) fail(f.status, f.code, f.message);
+    const half = (v: number) => Math.round(v * 2) / 2;
+    const position: Position = { x: half(2 + Math.random() * 18), y: 0, z: half(2 + Math.random() * 18), facing: b.settings.position.facing };
+    b.settings.position = position;
+    addLog(b, 'INFO', `Walked to owner @${u.username} at ${position.x} ${position.y} ${position.z} (saved)`);
+    return { ok: true, position };
+  }],
 
   // ---- Welcome ----
   ['POST', /^\/bots\/welcome\/(\d+)\/messages$/, (m, body) => {
@@ -976,17 +1008,18 @@ const routes: Route[] = [
     acct.password = body.new_password;
     return { ok: true };
   }],
-  ['GET', /^\/me\/link$/, () => ({ ...acct.highrise })],
-  ['POST', /^\/me\/link$/, (_m, body) => {
+  ['GET', /^\/me\/link$/, (_m, _b, u) => hrLink(u.username)],
+  ['POST', /^\/me\/link$/, (_m, body, u) => {
     const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
     if (!code) fail(400, 'missing_fields', 'code is required');
     if (!/^[A-Z0-9]{6}$/.test(code)) fail(400, 'invalid_input', 'code must be 6 characters');
-    if (acct.highrise.linked) fail(409, 'already_linked', 'Already linked');
+    if (hrLink(u.username).linked) fail(409, 'already_linked', 'Already linked');
     if (code === 'USED00') fail(409, 'code_used', 'Code already used');
     if (code === 'TAKEN0') fail(409, 'highrise_account_taken', 'Highrise account already linked to another account');
     if (code !== 'ABC234') fail(400, 'invalid_code', 'Unknown code');
-    acct.highrise = { linked: true, highrise_username: 'bbos' };
-    return { ok: true, highrise_username: 'bbos', claimed_gold: 0 };
+    const name = u.username.toLowerCase();
+    acct.highrise[name] = name;
+    return { ok: true, highrise_username: name, claimed_gold: 0 };
   }],
   ['GET', /^\/me\/discord$/, (_m, _b, u) => {
     const linked = hasDiscord(u.username);
@@ -997,10 +1030,10 @@ const routes: Route[] = [
     db.discordLinked.add(u.username.toLowerCase());
     return { url: 'https://highrise-bots.com/verify', expires_at: iso(now() + 5 * 60000) };
   }],
-  ['GET', /^\/me\/wallet$/, () => ({
+  ['GET', /^\/me\/wallet$/, (_m, _b, u) => ({
     gold_balance: acct.wallet.gold_balance,
-    highrise_linked: acct.highrise.linked,
-    highrise_username: acct.highrise.highrise_username,
+    highrise_linked: hrLink(u.username).linked,
+    highrise_username: hrLink(u.username).highrise_username,
     transactions: acct.wallet.transactions.slice(0, 20),
   } satisfies Wallet)],
   // ---- Radio ----
@@ -1141,6 +1174,8 @@ export const mockHandler: Handler = async (method, path, body, token) => {
   }
   // Bearer-Pflicht für alles außer Login (auch Logout), dann Discord-Pflicht außer /me, /me/delete, /auth/*
   const u = userFromToken(token);
+  // der Bot muss erst hinlaufen – Antwort kommt etwas später (Lade-Anzeige testen)
+  if (method === 'POST' && path.endsWith('/position/to_me')) await wait(1200);
   const exempt = path === '/me' || path === '/me/delete' || path === '/me/discord' || path === '/me/discord/web_link' || path.startsWith('/auth/');
   if (!u.discord_linked && !exempt) fail(403, 'discord_required', 'Link your Discord account on the website first');
   for (const [m, re, fn] of routes) {

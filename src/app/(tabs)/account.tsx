@@ -11,11 +11,11 @@ import { account, support, BOT_KINDS, MOCK, type Wallet, type WalletTx } from '@
 import { keys } from '@/lib/query';
 import { connectDiscord, signOut, useSession } from '@/lib/session';
 import { getLangSetting, LANG_NAMES, t, type Key } from '@/lib/i18n';
-import { fmtNum, relTime } from '@/lib/format';
+import { at, fmtNum, relTime } from '@/lib/format';
 import { legalUrl } from '@/lib/content';
 import { toast } from '@/lib/toast';
 import { confirm, haptic, openUrl } from '@/lib/ui';
-import { C, FONT, glow, KIND_EMOJI, R, S, T } from '@/lib/theme';
+import { alpha, C, FONT, glow, KIND_EMOJI, R, S, T } from '@/lib/theme';
 import { Card, ErrorState, MenuRow, Screen, SectionTitle, Txt } from '@/components/ui';
 import { Expandable } from '@/components/guide';
 
@@ -30,7 +30,7 @@ function GoldCard({ w }: { w: Wallet }) {
   const router = useRouter();
   const goldFont = Platform.OS === 'web' ? `${FONT.displayHeavy}, system-ui` : FONT.displayHeavy;
   return (
-    <View style={[{ backgroundColor: C.card, borderRadius: R.xl, borderWidth: 1, borderColor: 'rgba(255,204,68,0.45)', padding: S.lg, gap: S.md }, glow(C.gold, 0.18)]} testID="gold-card">
+    <View style={[{ backgroundColor: C.card, borderRadius: R.xl, borderWidth: 1, borderColor: alpha(C.gold, 0.45), padding: S.lg, gap: S.md }, glow(C.gold, 0.18)]} testID="gold-card">
       <Txt style={[T.sub, { color: C.text2 }]}>{t('wallet.title')}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
         <Txt style={{ fontSize: 34 }} maxFontSizeMultiplier={1.2}>🪙</Txt>
@@ -83,8 +83,9 @@ export default function AccountTab() {
     }
   }, []);
 
-  const version = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.2.0';
-  const build = Application.nativeBuildVersion;
+  // Web-Vorschau: expo-application kennt dort nur die package.json-Version → app.json nehmen
+  const version = (Platform.OS === 'web' ? null : Application.nativeApplicationVersion) ?? Constants.expoConfig?.version ?? '1.3.0';
+  const build = Platform.OS === 'web' ? null : Application.nativeBuildVersion;
   const ls = getLangSetting();
 
   return (
@@ -92,7 +93,7 @@ export default function AccountTab() {
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
         <Txt style={{ fontSize: 44 }} maxFontSizeMultiplier={1.2}>🙂</Txt>
         <View style={{ flex: 1 }}>
-          <Txt style={T.big} numberOfLines={1}>{user?.username ? `@${user.username}` : '–'}</Txt>
+          <Txt style={T.big} numberOfLines={1}>{user?.username ? at(user.username) : '–'}</Txt>
           {me.data ? (
             <Txt style={T.sub}>
               {BOT_KINDS.map((k) => `${KIND_EMOJI[k]} ${me.data.counts[k] ?? 0}/${me.data.limits[k] ?? 0}`).join('   ')}

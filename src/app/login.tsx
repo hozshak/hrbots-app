@@ -8,7 +8,7 @@ import { signIn } from '@/lib/session';
 import { errorText, t } from '@/lib/i18n';
 import { haptic, openUrl } from '@/lib/ui';
 import { C, glow, R, S, T } from '@/lib/theme';
-import { Button, Card, Field, Screen, Txt } from '@/components/ui';
+import { Button, Card, Field, IconBtn, Screen, Txt } from '@/components/ui';
 
 export default function Login() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function Login() {
   };
 
   return (
-    <Screen keyboard right={<Button label="🌍" small variant="secondary" onPress={() => router.push('/language')} testID="login-lang" />} testID="login">
+    <Screen keyboard right={<IconBtn icon="globe-outline" label={t('account.language')} onPress={() => router.push('/language')} testID="login-lang" />} testID="login">
       <View style={{ alignItems: 'center', gap: S.md, paddingTop: S.lg }}>
         <View style={[{ borderRadius: R.xl }, glow(C.accent, 0.4)]}><Image source={require('../../assets/images/icon.png')} style={{ width: 96, height: 96, borderRadius: R.xl }} accessibilityIgnoresInvertColors /></View>
         <Txt style={[T.hero, { textAlign: 'center' }]}>{t('login.hello')}</Txt>
@@ -48,6 +48,7 @@ export default function Login() {
           autoCapitalize="none"
           autoComplete="username"
           textContentType="username"
+          ltr
           returnKeyType="next"
           onSubmitEditing={() => pw.current?.focus()}
           testID="login-username"
@@ -61,6 +62,7 @@ export default function Login() {
           autoCapitalize="none"
           autoComplete="password"
           textContentType="password"
+          ltr
           returnKeyType="go"
           onSubmitEditing={submit}
           error={err}

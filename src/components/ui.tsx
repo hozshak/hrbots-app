@@ -11,14 +11,26 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { MOCK } from '@/api';
 import { errorText, isRTL, t } from '@/lib/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, glow, mono, PRIMARY_GRADIENT, R, S, T } from '@/lib/theme';
+import { alpha, C, glow, mono, PRIMARY_GRADIENT, R, S, T } from '@/lib/theme';
 import { haptic } from '@/lib/ui';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 
 /** Schrift-Größe folgt Dynamic Type, aber höchstens 1,6-fach (sonst bricht das Layout auf kleinen iPhones) */
-export function Txt({ style, maxFontSizeMultiplier = 1.6, ...p }: TextProps & { style?: StyleProp<TextStyle> }) {
-  return <Text maxFontSizeMultiplier={maxFontSizeMultiplier} style={style} {...p} />;
+export function Txt({ style, maxFontSizeMultiplier = 1.6, auto, ...p }: TextProps & {
+  style?: StyleProp<TextStyle>;
+  /** Text von Nutzern (Nachrichten, Namen, Betreff): Schreibrichtung nach dem Inhalt – englischer Text in der arabischen
+   *  Oberfläche behält seine Satzzeichen am richtigen Ende (iOS: writingDirection auto, Web: dir="auto") */
+  auto?: boolean;
+}) {
+  return (
+    <Text
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      style={auto ? [style, { writingDirection: 'auto' }] : style}
+      {...(auto && Platform.OS === 'web' ? ({ dir: 'auto' } as object) : null)}
+      {...p}
+    />
+  );
 }
 
 export const dirStyle = (): ViewStyle => ({ direction: isRTL() ? 'rtl' : 'ltr' });
@@ -68,7 +80,7 @@ export function Screen({
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={[{ flex: 1, backgroundColor: C.bg }, dirStyle()]}>
       {/* sanftes Neon-Leuchten oben wie auf der Webseite */}
-      <LinearGradient pointerEvents="none" colors={['rgba(45,212,255,0.10)', 'rgba(45,212,255,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 280 }} />
+      <LinearGradient pointerEvents="none" colors={[alpha(C.accent, 0.1), alpha(C.accent, 0)]} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 280 }} />
       {title !== undefined || onBack || close || right ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, paddingHorizontal: S.md, paddingTop: S.sm, paddingBottom: S.sm, minHeight: 60 }}>
           {onBack ? <IconBtn testID="back" icon={backIcon()} label={t('common.back')} onPress={onBack} /> : null}
@@ -96,10 +108,10 @@ export function Screen({
 type BtnVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'warning';
 // wie die Webseite: primary = Verlauf Cyan→Lime mit Leuchten; sonst getönter Grund + farbiger Rand
 const BTN_BG: Record<BtnVariant, string> = {
-  primary: C.accent, secondary: 'rgba(45,212,255,0.05)', danger: C.redSoft, ghost: 'transparent', success: C.greenSoft, warning: C.orangeSoft,
+  primary: C.accent, secondary: alpha(C.accent, 0.05), danger: C.redSoft, ghost: 'transparent', success: C.greenSoft, warning: C.orangeSoft,
 };
 const BTN_BORDER: Record<BtnVariant, string> = {
-  primary: 'transparent', secondary: C.cardBorder, danger: 'rgba(255,77,109,0.45)', ghost: 'transparent', success: 'rgba(61,240,160,0.5)', warning: 'rgba(255,154,61,0.6)',
+  primary: 'transparent', secondary: C.cardBorder, danger: alpha(C.red, 0.45), ghost: 'transparent', success: alpha(C.green, 0.5), warning: alpha(C.orange, 0.6),
 };
 const BTN_FG: Record<BtnVariant, string> = { primary: C.onAccent, secondary: C.text, danger: C.red, ghost: C.accent, success: C.green, warning: C.orange };
 
@@ -148,7 +160,7 @@ export function Button({
   );
 }
 
-export function IconBtn({ icon, onPress, label, color = C.text, bg = C.card2, size = 48, disabled, testID }: {
+export function IconBtn({ icon, onPress, label, color = C.text, bg = C.elevated, size = 48, disabled, testID }: {
   icon: IconName; onPress: () => void; label: string; color?: string; bg?: string; size?: number; disabled?: boolean; testID?: string;
 }) {
   return (
@@ -184,7 +196,7 @@ export function AddButton({ label, onPress, testID }: { label: string; onPress: 
         onPress();
       }}
       style={({ pressed }) => ({
-        minHeight: 64, borderRadius: R.lg, borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(45,212,255,0.55)',
+        minHeight: 64, borderRadius: R.lg, borderWidth: 2, borderStyle: 'dashed', borderColor: alpha(C.accent, 0.55),
         backgroundColor: pressed ? C.accentSoft : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: S.lg,
       })}
     >
@@ -203,7 +215,7 @@ export function TrashButton({ onPress, label }: { onPress: () => void; label: st
 
 // ---------------------------------------------------------------- Karten / Listen
 export function Card({ children, style, padded = true, tone }: { children: ReactNode; style?: StyleProp<ViewStyle>; padded?: boolean; tone?: 'warn' | 'bad' | 'good' }) {
-  const border = tone === 'warn' ? 'rgba(255,159,67,0.6)' : tone === 'bad' ? 'rgba(255,107,120,0.6)' : tone === 'good' ? 'rgba(47,210,127,0.5)' : C.cardBorder;
+  const border = tone === 'warn' ? alpha(C.orange, 0.6) : tone === 'bad' ? alpha(C.red, 0.6) : tone === 'good' ? alpha(C.green, 0.5) : C.cardBorder;
   return (
     <View style={[{ backgroundColor: C.card, borderRadius: R.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }, padded && { padding: S.lg }, style]}>
       {children}
@@ -221,15 +233,17 @@ export function SectionTitle({ title, right }: { title: string; right?: ReactNod
 }
 
 /** eine Zeile in einer Liste: groß, Text links, Knöpfe rechts (gespiegelt bei Arabisch) */
-export function ListItem({ emoji, title, sub, right, onPress, onDelete, deleteLabel, muted, testID }: {
+export function ListItem({ emoji, title, sub, right, onPress, onDelete, deleteLabel, muted, testID, freeText }: {
   emoji?: string; title: string; sub?: string | null; right?: ReactNode; onPress?: () => void; onDelete?: () => void; deleteLabel?: string;
   muted?: boolean; testID?: string;
+  /** Titel ist Text von Nutzern (Nachricht, Betreff) → Schreibrichtung nach dem Inhalt */
+  freeText?: boolean;
 }) {
   const inner = (
     <>
       {emoji ? <Txt style={{ fontSize: 26 }}>{emoji}</Txt> : null}
       <View style={{ flex: 1, gap: 2 }}>
-        <Txt style={[T.body, { fontWeight: '600' }, muted && { color: C.text3 }]} numberOfLines={3}>{title}</Txt>
+        <Txt auto={freeText} style={[T.body, { fontWeight: '600' }, muted && { color: C.text3 }]} numberOfLines={3}>{title}</Txt>
         {sub ? <Txt style={T.sub} numberOfLines={2}>{sub}</Txt> : null}
       </View>
     </>
@@ -263,7 +277,7 @@ export function MenuRow({ emoji, label, value, onPress, danger, testID }: { emoj
       }}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 64, paddingHorizontal: S.lg, paddingVertical: S.sm,
-        backgroundColor: pressed ? C.cardPressed : C.card, borderRadius: R.md, borderWidth: 1, borderColor: danger ? 'rgba(255,107,120,0.4)' : C.cardBorder,
+        backgroundColor: pressed ? C.cardPressed : C.card, borderRadius: R.md, borderWidth: 1, borderColor: danger ? alpha(C.red, 0.4) : C.cardBorder,
       })}
     >
       <Txt style={{ fontSize: 24 }}>{emoji}</Txt>
@@ -288,7 +302,8 @@ export function Tile({ emoji, label, sub, onPress, color = C.accent, testID, wid
         onPress();
       }}
       style={({ pressed }) => ({
-        flexBasis: wide ? '100%' : '47%', flexGrow: 1, minHeight: 122, borderRadius: R.lg, padding: S.md, gap: 6,
+        // breit: volle Breite (flexBasis würde in einer Spalte die HÖHE setzen → riesige Kachel)
+        ...(wide ? { width: '100%' as const } : { flexBasis: '47%' as const, flexGrow: 1 }), minHeight: 122, borderRadius: R.lg, padding: S.md, gap: 6,
         backgroundColor: pressed ? C.cardPressed : C.card, borderWidth: 1, borderColor: pressed ? color : C.cardBorder, justifyContent: 'center',
         transform: [{ scale: pressed ? 0.98 : 1 }], ...(pressed ? glow(color, 0.3) : null),
       })}
@@ -304,17 +319,21 @@ export function Tile({ emoji, label, sub, onPress, color = C.accent, testID, wid
 
 // ---------------------------------------------------------------- Eingaben
 export function Field({
-  label, hint, error, ok, style, right, ref, big, ...input
+  label, hint, error, ok, style, right, ref, big, ltr, invalid, ...input
 }: TextInputProps & {
   label?: string; hint?: string | null; error?: string | null; ok?: string | null; style?: StyleProp<ViewStyle>; right?: ReactNode;
   ref?: Ref<TextInputInstance>; big?: boolean;
+  /** Links, Codes, Schlüssel, Zahlen, Highrise-Namen: immer links→rechts schreiben (auch bei Arabisch) */
+  ltr?: boolean;
+  /** roter Rand ohne eigene Meldung (Meldung steht woanders, z. B. unter einer Zeile mit mehreren Feldern) */
+  invalid?: boolean;
 }) {
   const [focus, setFocus] = useState(false);
-  const rtl = isRTL();
+  const rtl = isRTL() && !ltr;
   return (
     <View style={[{ gap: 6 }, style]}>
       {label ? <Txt style={[T.sub, { color: C.text, fontWeight: '700' }]}>{label}</Txt> : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.field, borderRadius: R.md, borderWidth: 2, borderColor: error ? C.red : focus ? C.accent : C.fieldBorder }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.field, borderRadius: R.md, borderWidth: 2, borderColor: error || invalid ? C.red : focus ? C.accent : C.fieldBorder }}>
         <TextInput
           ref={ref}
           accessibilityLabel={label ?? input.placeholder}
@@ -334,7 +353,7 @@ export function Field({
           }}
           style={[
             T.body,
-            { flex: 1, minHeight: big ? 60 : 54, paddingHorizontal: 16, paddingVertical: 12, fontSize: big ? 20 : 18, textAlign: rtl ? 'right' : 'left' },
+            { flex: 1, minWidth: 0, minHeight: big ? 60 : 54, paddingHorizontal: 16, paddingVertical: 12, fontSize: big ? 20 : 18, textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' },
             input.multiline && { minHeight: 96, textAlignVertical: 'top' },
             Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
           ]}
@@ -362,7 +381,7 @@ export function PasteButton({ onPaste, testID }: { onPaste: () => void; testID?:
       onPress={onPaste}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 6, paddingHorizontal: 12, minHeight: 44, borderRadius: R.sm,
-        backgroundColor: pressed ? 'rgba(45,212,255,0.35)' : C.accentSoft,
+        backgroundColor: pressed ? alpha(C.accent, 0.35) : C.accentSoft,
       })}
     >
       <Txt style={{ fontSize: 16 }}>📋</Txt>
@@ -454,9 +473,9 @@ export function AppSwitch({ value, onChange, disabled, testID, label }: {
         haptic.select();
         onChange(v);
       }}
-      trackColor={{ true: C.green, false: 'rgba(255,255,255,0.22)' }}
-      thumbColor="#fff"
-      {...(Platform.OS === 'web' ? ({ activeThumbColor: '#fff' } as object) : {})}
+      trackColor={{ true: C.green, false: alpha(C.white, 0.22) }}
+      thumbColor={C.white}
+      {...(Platform.OS === 'web' ? ({ activeThumbColor: C.white } as object) : {})}
     />
     </View>
   );
@@ -495,7 +514,7 @@ export function Templates({ items, onPick, title }: { items: string[]; onPick: (
             }}
             style={({ pressed }) => ({
               flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 46, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 23, maxWidth: '100%',
-              backgroundColor: pressed ? 'rgba(45,212,255,0.35)' : C.accentSoft, borderWidth: 1, borderColor: 'rgba(45,212,255,0.4)',
+              backgroundColor: pressed ? alpha(C.accent, 0.35) : C.accentSoft, borderWidth: 1, borderColor: alpha(C.accent, 0.4),
             })}
           >
             <Ionicons name="add-circle" size={20} color={C.accent} />

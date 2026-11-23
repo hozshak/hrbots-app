@@ -45,6 +45,7 @@ export default function DeleteAccount() {
         onChangeText={setPassword}
         secureTextEntry
         autoCapitalize="none"
+        ltr
         autoComplete="password"
         textContentType="password"
         error={err}

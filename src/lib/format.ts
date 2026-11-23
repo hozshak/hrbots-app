@@ -69,3 +69,6 @@ export function fileSize(bytes: number) {
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }
+
+/** Highrise-Name mit @ – mit unsichtbarer Links→rechts-Marke, damit es bei Arabisch nicht „name@“ wird */
+export const at = (username: string) => `‎@${username}`;

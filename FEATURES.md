@@ -1,4 +1,4 @@
-# HR Bots – Feature-Inventar Webseite ↔ API ↔ App (Stand App 1.2.0, 23.11.2026)
+# HR Bots – Feature-Inventar Webseite ↔ API ↔ App (Stand App 1.3.0, 24.11.2026)
 
 Jede kundenseitige Funktion der Webseite (`highrise-manager/worker/src/routes/*.ts`, ohne admin.ts/*.bak) mit
 API-Endpunkt (`/api/v1`, siehe `worker/API.md`) und App-Bildschirm. Status:
@@ -61,7 +61,9 @@ App-Pfade: `src/app/…` (Bildschirme), `src/components/pages/…` (Bot-Seiten).
 | Positions-Tracking: hinzufügen, an/aus, löschen | `…/tracking` | Bot → Beobachten | done |
 | Begrüßungen: allgemein/persönlich, an/aus, bearbeiten, löschen, hinzufügen | `…/messages` | Bot → Was er sagt | done |
 | Admin-Chatbefehle (`-welcome`, `-posuser`, `-stoppos`, `-posbot`, `H @user`) | – | Hilfe → Chat-Wörter (mit „Wer darf das?“), Bot → Hilfe | done |
-| Bearbeiten: Name, Raum-ID, Raum-Link, Position x/y/z, Blickrichtung | `PATCH /bots/welcome/:id` | Experten → Name / Raum / Platz; Bot → Wo er steht (Richtung) | done (Raum-ID + Link über ein Feld: Link einfügen setzt beides) |
+| Bearbeiten: Name, Raum-ID, Raum-Link, Position x/y/z, Blickrichtung | `PATCH /bots/welcome/:id` | Experten → Name / Raum / Genauer Platz (Zahlen); Bot → Wo er steht (4 Pfeil-Knöpfe) | done (Raum-ID + Link über ein Feld: Link einfügen setzt beides) |
+| **neu** Bot-Platz ganz einfach: „Bot zu mir holen“ | **neu** `POST /bots/:kind/:id/position/to_me` | Bot → Wo er steht: riesiger Knopf „📍 Bot zu mir holen“ mit 2 Bild-Schritten, Fehler mit passendem Knopf (AN, Highrise verbinden, Raum öffnen, nochmal) + Hinweis `-here` im Raum-Chat | done (alle 3 Bot-Arten; Endpunkt wird gerade im Worker gebaut) |
+| Gold des Begrüßers (eigene Wallet) | **neu** `settings.wallet` (darf `null` sein) | Bot-Seite: Kachel „🪙 Bot-Gold: N · aktualisiert vor …“ unter der Bot-Karte, sonst „noch unbekannt – erscheint, wenn der Bot an ist“ | done (nur Anzeige) |
 | Bot-Token im Bearbeiten-Formular **anzeigen** | nur `bot_token_set` | Experten → Schlüssel ersetzen | not allowed (security) – nur neu setzen |
 | Löschen | `DELETE /bots/welcome/:id` (stoppt + räumt auf) | Experten → Bot löschen | done |
 | Restzeit läuft live | `runtime.seconds_left` | Restzeit-Anzeige (zählt herunter) | done |
@@ -73,9 +75,9 @@ App-Pfade: `src/app/…` (Bildschirme), `src/components/pages/…` (Bot-Seiten).
 | Anlegen (Name, Raum, Token, Owner) + Anleitungen (Designer **und** Moderator-Rechte) | `POST /bots` | `new.tsx` | done |
 | Kopf: Online/Offline, Engine-Badge, „Open room“, Start/Stop/Neustart | `GET /bots/mod/:id`, power | Bot-Menü (Zum Raum, AN/AUS), Experten | done |
 | Übersicht: Zahlen VIPs/Zonen/Orte/Gäste/Wörter | `settings.*` | Zahlen auf den Kacheln | done |
-| Übersicht: Gold des Bots (`wallet_gold`, „!wallet“) | `settings.wallet` | **neu** Bot → Aktivität: „🪙 Gold des Bots“ (nur Anzeige) | done |
+| Übersicht: Gold des Bots (`wallet_gold`, „!wallet“) | `settings.wallet` | **1.3** Bot-Seite: Kachel „🪙 Bot-Gold“ direkt unter der Bot-Karte (nur Anzeige) | done |
 | Letzte Aktivität (Join/Leave) | `…/presence` | Bot → Aktivität → Besucher | done |
-| Position x/y/z/Richtung | `PATCH {position}` | Wo er steht / Experten → Platz | done |
+| Position x/y/z/Richtung | `PATCH {position}`, **neu** `POST …/position/to_me` | Wo er steht („Bot zu mir holen“, Pfeil-Knöpfe) / Experten → Genauer Platz (Zahlen-Tastatur, 0–200 / Höhe 0–100) | done |
 | Verbindung: Raum-ID, Raum-Link, Token (Neustart) | `PATCH {room, bot_token}` | Experten → Raum / Schlüssel | done (Token anzeigen: not allowed (security)) |
 | Runtime JS/Python | `PATCH {engine}` | Experten → Bot-Motor | done |
 | Owner setzen | `PATCH {owner_username}` | Bot → Helfer → Chef | done |
@@ -89,11 +91,11 @@ App-Pfade: `src/app/…` (Bildschirme), `src/components/pages/…` (Bot-Seiten).
 | Meldungen (Liste, schließen) | `…/reports` | Regeln → Meldungen | done |
 | Böse Wörter + Aktion (warn/mute/kick/ban), löschen | `…/banned_words` | Regeln → Wörter | done |
 | Begrüßungen (an/aus, löschen, hinzufügen) | `…/welcomes` | Bot → Was er sagt (auch bearbeiten) | done |
-| Teleport-Ziele (Name, x/y/z, ab Rolle), löschen | `…/destinations` | Bot → Orte → Plätze | done |
+| Teleport-Ziele (Name, x/y/z, ab Rolle), löschen | `…/destinations` | Bot → Orte → Plätze („Platz vom Bot nehmen“, Zahlen nur unter „Zahlen eintippen (Experten)“) | done |
 | VIP-Preis (Gold-Trinkgeld der Gäste) | `PUT …/vip {price}` | – | not allowed (Apple) – Gold-Preis |
-| VIP-Sicherheitspunkt (`!setvipsafe`) | `PUT …/vip {safe_spot}` | Experten → VIP-Rauswurf-Punkt | done |
+| VIP-Sicherheitspunkt (`!setvipsafe`) | `PUT …/vip {safe_spot}` | Experten → VIP-Rückkehr-Platz (setzen, **neu** entfernen = `null`) | done (Webseite hat dafür gar kein Formular) |
 | VIP-Zonen (Mitte + Radius), löschen | `…/vip_zones` | Bot → Orte → VIP | done |
-| Outfit-Wechsel an/aus + Minuten | `PUT …/outfit_settings` | Bot → Aussehen | done |
+| Outfit-Wechsel an/aus + Minuten | `PUT …/outfit_settings` | Bot → Aussehen (5/10/30/60 Min. oder **neu** „Andere“: 1–10080 Min. wie die Webseite) | done |
 | Outfits: Liste, hinzufügen (Item-Codes), löschen, alle löschen | `…/outfits` | Aussehen + Experten → Outfit-Codes (**neu** Prüfung ≤ 50 Teile) | done |
 | Gästeliste (`!tip1`) | `…/guests` | Aktivität → Gäste | done |
 | Positions-Tracking (Namen) | `…/tracking` | Aktivität → Beobachten | done |
@@ -118,12 +120,12 @@ App-Pfade: `src/app/…` (Bildschirme), `src/components/pages/…` (Bot-Seiten).
 | Icecast-Formular (Host, Port, User, Passwort, Mount) | `PUT …/icecast` (**neu**: Hörer-Link passt sich an) | Experten → Radio-Stream → Eigener Server | done |
 | Icecast-Passwort im Formular anzeigen | nur `password_set` | – | not allowed (security) |
 | Max. Liedlänge, Autoplay an/aus | `PUT …/settings` | Experten → Liedlänge; Musik → Weiterspielen | done |
-| Ansagen (Zeilen, Intervall) | `PUT …/announcements` | Bot → Was er sagt | done |
+| Ansagen (Zeilen, Intervall) | `PUT …/announcements` | Bot → Was er sagt (1/5/10/30/60 Min. oder **neu** „Andere“: 30–3600 s wie die Webseite) | done |
 | Autoplay-Lieder: Liste „n/20“, Größe, löschen | `GET/DELETE …/autoplay` | Experten → Meine Lieder („n von 20“) | done |
 | Autoplay-Lieder **hochladen** (.mp3, ≤ 10 MB, max. 20) | `POST …/autoplay` (multipart `file`) | **neu** Experten → Meine Lieder → „Lied hinzufügen (.mp3)“ (expo-document-picker) | done |
 | Runtime, Position, Zugangsdaten (Name, Raum, Link, Token, Owner) | `PATCH` | Experten / Helfer → Chef | done (Token anzeigen: not allowed (security)) |
 | Befehls-Tab (alle Chatbefehle mit Rollen, DM `sub`) | – | Hilfe → Chat-Wörter → DJ (20 Einträge, ohne Gold-Beträge) | done |
-| Gold des Bots (`-musicwallet`) | `settings.wallet` | **neu** Aktivität → „🪙 Gold des Bots“ | done |
+| Gold des Bots (`-musicwallet`) | `settings.wallet` | **1.3** Bot-Seite: Kachel „🪙 Bot-Gold“ (nur Anzeige) | done (Server schreibt `wallet` beim DJ noch nie – siehe unten) |
 | Logs + Join/Leave | `…/logs`, `…/presence` | Experten / Aktivität | done |
 
 ## 6. Radio (radio.ts)
@@ -199,6 +201,26 @@ App-Pfade: `src/app/…` (Bildschirme), `src/components/pages/…` (Bot-Seiten).
 - Chat schickte Fehler-Blasen/sehr lange Antworten mit → gefiltert/gekürzt.
 - Outfits > 50 Teile wurden erst vom Server abgelehnt → App prüft vorher.
 - Mock spiegelt jetzt: inklusives Radio beim DJ-Anlegen, Befehlsverlauf, Bild-Anhänge, Radio-Status, Löschen inkl. Radio/Tickets, Chat-Prüfungen, Registrierung, Einmal-Link, Upload, PID.
+
+## Neu in 1.3.0 (24.11.2026)
+
+- **Bot-Platz kinderleicht** (alle drei Bot-Arten, Seite „Wo er steht“): 1. riesiger Knopf „📍 Bot zu mir holen“ (`POST /bots/:kind/:id/position/to_me`)
+  mit zwei Bild-Schritten („Geh in den Raum und stell dich hin“ / „Tipp den Knopf“) und „Meinen Raum öffnen“; Fehler `not_running` → großer AN-Knopf,
+  `highrise_not_linked` → „Highrise-Konto verbinden“, `owner_not_in_room`/`bot_not_in_room` → Raum öffnen + nochmal, `timeout`/`agent_error` → nochmal;
+  Erfolg mit neuer Stelle. 2. „Oder schreib `-here` in den Raum-Chat“. 3. Blickrichtung als 4 große Pfeil-Knöpfe (Raster wie der Raum, nie gespiegelt,
+  Bot in der Mitte). 4. Zahlen nur unter „Experten-Einstellungen: Genauer Platz“ (Zahlen-Tastatur, Prüfung 0–200 / Höhe 0–100).
+  Nach „Bot machen“ gibt es „📍 Platz für den Bot aussuchen“; Kachel „Wo er steht“ zeigt die Richtung (↘ Vorne rechts).
+- **Bot-Gold** auf der Bot-Seite (alle Arten, nur Anzeige, kein Kaufen/Preis).
+- **Freie Werte wie auf der Webseite**: Outfit-Wechsel-Minuten und Ansage-Intervall über „✏️ Andere“; VIP-Rückkehr-Platz entfernen; Chat-Wörter für Orte geprüft (ohne Leerzeichen, leer = Standard).
+- Chat-Wort `-here` in Hilfe → Chat-Wörter (Begrüßer: Bot-Helfer, Wächter: Admin+, DJ: Chef); Anleitung + Frage „Bot an eine neue Stelle bringen“.
+- Design-Prüfung aller Seiten: siehe `DESIGN_REVIEW.md`.
+
+## Offen beim Server (nicht in der App lösbar)
+
+- `POST /bots/:kind/:id/position/to_me` und `-here` für alle drei Bot-Arten werden gerade im Worker/Bot-Server gebaut (App + Mock fertig).
+- `settings.wallet` beim **Begrüßer** wird gerade ergänzt (App zeigt bis dahin „noch unbekannt“).
+- `settings.wallet` beim **DJ**: Die API liefert das Feld, aber kein Agent-Endpunkt schreibt `music_bots.wallet_gold` (`-musicwallet` flüstert nur) → bleibt „noch unbekannt“,
+  bis der Bot-Server es meldet (gleiche Form wie Wächter: `/api/bot/music/:id/update_wallet` → `{gold, updated_at}`).
 
 ## Bewusst nicht in der App – Begründung
 

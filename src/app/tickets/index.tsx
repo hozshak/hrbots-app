@@ -29,6 +29,7 @@ export default function Tickets() {
             testID={`ticket-${tk.id}`}
             emoji={TICKET_EMOJI[tk.status]}
             title={tk.subject}
+            freeText
             sub={`${t(`tstatus.${tk.status}` as Key)} · ${relTime(tk.updated_at ?? tk.created_at)}`}
             onPress={() => router.push({ pathname: '/tickets/[id]', params: { id: String(tk.id) } })}
           />

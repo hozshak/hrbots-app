@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { EXTRA_LIMITS, support } from '@/api';
 import { keys, queryClient } from '@/lib/query';
 import { relTime } from '@/lib/format';
-import { errorText, t, type Key } from '@/lib/i18n';
+import { errorText, isRTL, t, type Key } from '@/lib/i18n';
 import { haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { C, KIND_EMOJI, R, S, T } from '@/lib/theme';
@@ -18,9 +18,9 @@ const TICKET_EMOJI = { open: '⏳', answered: '💬', closed: '✅' } as const;
 function Bubble({ mine, who, body, when, image }: { mine: boolean; who: string; body: string; when: string | null; image?: string | null }) {
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
-      <Txt style={[T.caption, { textAlign: mine ? 'right' : 'left' }]}>{who}{when ? ` · ${relTime(when)}` : ''}</Txt>
+      <Txt style={[T.caption, { textAlign: mine === isRTL() ? 'left' : 'right' }]}>{who}{when ? ` · ${relTime(when)}` : ''}</Txt>
       <View style={{ backgroundColor: mine ? C.accentSoft : C.card, borderWidth: 1, borderColor: mine ? C.accentBorder : C.cardBorder, borderRadius: R.xl, padding: S.md, gap: S.sm }}>
-        <Txt selectable style={T.body}>{body}</Txt>
+        <Txt selectable auto style={T.body}>{body}</Txt>
         {image ? <Picture uri={image} size={150} wide /> : null}
       </View>
     </View>
@@ -70,7 +70,7 @@ export default function TicketThread() {
           ) : null}
           <View style={{ flexDirection: 'row', gap: S.sm, alignItems: 'flex-end' }}>
             <IconBtn icon="image-outline" label={t('img.add')} onPress={async () => { const v = await chooseImage(); if (v) setImage(v); }} testID="ticket-reply-image" />
-            <Field style={{ flex: 1 }} value={reply} onChangeText={setReply} placeholder={t('tickets2.replyPh')} multiline maxLength={EXTRA_LIMITS.ticketBody} testID="ticket-reply" />
+            <Field style={{ flex: 1 }} value={reply} onChangeText={setReply} placeholder={t('tickets2.replyPh')} multiline autoCorrect autoCapitalize="sentences" maxLength={EXTRA_LIMITS.ticketBody} testID="ticket-reply" />
             <Button label={t('tickets2.reply')} small onPress={send} loading={busy} disabled={reply.trim().length < EXTRA_LIMITS.replyMin} testID="ticket-reply-send" />
           </View>
         </View>

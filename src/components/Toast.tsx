@@ -27,7 +27,7 @@ export function ToastHost() {
     >
       <Pressable onPress={hideToast} accessibilityRole="alert" style={[styles.box, dirStyle()]}>
         <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,22,29,0.82)' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.toastBg }]} />
         <Ionicons name={icon} size={24} color={color} />
         <Txt style={[T.callout, { color: C.text, flex: 1, fontWeight: '600' }]}>{toast.text}</Txt>
       </Pressable>

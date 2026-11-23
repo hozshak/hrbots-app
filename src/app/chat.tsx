@@ -19,7 +19,7 @@ function Bubble({ m }: { m: Msg }) {
       {!mine ? <Txt style={{ fontSize: 24 }} maxFontSizeMultiplier={1.2}>🤖</Txt> : null}
       <View style={{ backgroundColor: mine ? C.accentSoft : C.card, borderWidth: 1, borderColor: mine ? C.accentBorder : C.cardBorder, borderRadius: R.xl, padding: S.md, flexShrink: 1, gap: S.sm }}>
         {m.image ? <Picture uri={m.image} size={120} wide /> : null}
-        <Txt selectable style={T.body}>{m.content}</Txt>
+        <Txt selectable auto style={T.body}>{m.content}</Txt>
       </View>
     </View>
   );
@@ -76,7 +76,7 @@ export default function HelpChat() {
           ) : null}
           <View style={{ flexDirection: 'row', gap: S.sm, alignItems: 'flex-end' }}>
             <IconBtn icon="image-outline" label={t('img.add')} onPress={async () => { const v = await chooseImage(); if (v) setImage(v); }} testID="chat-image" />
-            <Field style={{ flex: 1 }} value={text} onChangeText={setText} placeholder={t('chat.ph')} multiline maxLength={EXTRA_LIMITS.chatMessage} testID="chat-input" />
+            <Field style={{ flex: 1 }} value={text} onChangeText={setText} placeholder={t('chat.ph')} multiline autoCorrect autoCapitalize="sentences" maxLength={EXTRA_LIMITS.chatMessage} testID="chat-input" />
             <Button label={t('chat.send')} small onPress={() => send()} loading={busy} disabled={!text.trim()} testID="chat-send" />
           </View>
         </View>

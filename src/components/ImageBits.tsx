@@ -49,15 +49,15 @@ export function Picture({ uri, size = 160, wide }: { uri: string; size?: number;
   return (
     <>
       <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('img.show')} onPress={() => setOpen(true)}
-        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, borderRadius: R.md, overflow: 'hidden', borderWidth: 1, borderColor: C.cardBorder, backgroundColor: '#000', alignSelf: 'flex-start' })}>
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, borderRadius: R.md, overflow: 'hidden', borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.logBg, alignSelf: 'flex-start' })}>
         <Image source={{ uri }} style={wide ? { width: 240, height: size } : { width: size, height: size }} resizeMode="cover" accessibilityIgnoresInvertColors />
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => setOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: S.lg }}>
+          style={{ flex: 1, backgroundColor: C.overlay, alignItems: 'center', justifyContent: 'center', padding: S.lg }}>
           <Image source={{ uri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" accessibilityIgnoresInvertColors />
           <View style={{ position: 'absolute', top: 56, right: 20 }}>
-            <Ionicons name="close-circle" size={40} color="#fff" />
+            <Ionicons name="close-circle" size={40} color={C.white} />
           </View>
         </Pressable>
       </Modal>

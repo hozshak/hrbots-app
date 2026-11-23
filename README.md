@@ -22,11 +22,12 @@ Bot-Token wird nach dem Speichern nie angezeigt („Schlüssel gespeichert“).
   tickets, stand, activity, help, **expert**); `language`, `password`, `link` (Highrise verbinden), `radios`, `tickets/…`
   (Nachrichten ans Team), `chat` (Hilfe-Roboter), `delete-account`, `login`, `discord`.
 - `src/components/` – `ui.tsx` (Bausteine), `BotCard.tsx` (AN/AUS-Knopf, Restzeit-Balken), `editors.tsx` (Listen mit „+“/Mülleimer),
-  `pages/*` (Inhalte der Bot-Seiten), `FixItSheet.tsx`, `guide.tsx` („Zeig mir, wie“).
+  `pages/*` (Inhalte der Bot-Seiten; `pages/position.tsx` = „Wo er steht“ mit „Bot zu mir holen“, Pfeil-Knöpfen und Zahlen-Prüfung), `BotGold.tsx` (Bot-Gold-Kachel), `FixItSheet.tsx`, `guide.tsx` („Zeig mir, wie“).
 - Alles Technische (Koordinaten, Logs, Outfit-Codes, Icecast, Chat-Wörter, Raum/Schlüssel, Bot-Motor) liegt unter „Experten-Einstellungen“.
 
 **Gold**: Konto zeigt „Mein Gold“ nur zum Ansehen (GET /me/wallet) + Verlauf in einfachen Worten. Kein Kaufen/Mieten/Verlängern,
-keine Preise, kein Hinweis, wo man kauft. Gold-Felder der API (mod `vip.price`, `wallet`, music `gold_per_ticket`) werden nie gezeigt/gesendet.
+keine Preise, kein Hinweis, wo man kauft. Gold-Preise der API (mod `vip.price`, music `gold_per_ticket`) werden nie gezeigt/gesendet.
+Das eigene Gold des Bots (`settings.wallet`) steht ab 1.3 nur zum Ansehen als Kachel „🪙 Bot-Gold“ auf der Bot-Seite.
 
 ## Gegen einen lokalen Server testen
 Server: im Ordner `highrise-manager/worker` `npx wrangler dev --local --port 8788 --test-scheduled --var AGENT_URL:http://127.0.0.1:9 --var AGENT_SECRET:local-test`.
@@ -44,7 +45,9 @@ Anmelden mit beliebigem Namen und Passwort. Besondere Testfälle im Mock:
 - Benutzer `nodiscord` → Discord-Seite; `disabled` → Konto gesperrt
 - Bot „Party Welcome“ → keine Laufzeit; „Chill Radio“ → 1. Start: Server antwortet nicht, 2. Start: stürzt ab (Beheben-Blatt), 3. klappt
 - Raum-ID `000000000000000000000000` → ungültiger Raum
-- Highrise verbinden: Code `ABC234` klappt, `USED00` = schon benutzt, `TAKEN0` = anderes Konto; Passwort ändern: altes `wrong` = falsch
+- Highrise verbinden: alle Testnamen sind schon verbunden, außer Benutzer `nolink` (und neu registrierte) → Code `ABC234` klappt, `USED00` = schon benutzt, `TAKEN0` = anderes Konto; Passwort ändern: altes `wrong` = falsch
+- „Bot zu mir holen“ (Wo er steht): „Lobby Greeter“ klappt sofort · „Club Guard“ ist aus (AN-Knopf), danach 1. Versuch „wir sehen dich nicht“ · „Chill Radio“ 1. „Raum schläft“, 2. Zeitüberschreitung · „Party Welcome“ hat keine Zeit · Benutzer `nolink` → „Highrise verbinden“
+- Bot-Gold: „Lobby Greeter“ 6, „Club Guard“ 42, „Party Welcome“/„Chill Radio“ noch unbekannt
 
 Sprache testen: in der App Konto → Sprache, oder `EXPO_PUBLIC_LANG=de|en|ar` setzt die Geräte-Sprache für „Automatisch“. Prüfen: `npm run typecheck`.
 Hinweis: Einfügen aus der Zwischenablage geht im Browser-Test meist nicht (Browser-Erlaubnis), am iPhone schon.

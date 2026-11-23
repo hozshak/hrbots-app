@@ -4,17 +4,17 @@ import { Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { cleanUsername, isUsername, music, INPUT_LIMITS, type BotDetail, type MusicAction, type MusicRole, type MusicSettings } from '@/api';
 import { keys, useNow } from '@/lib/query';
-import { relTime } from '@/lib/format';
+import { at, relTime } from '@/lib/format';
 import { errorText, t, type Key } from '@/lib/i18n';
 import { content } from '@/lib/content';
 import { confirm, haptic } from '@/lib/ui';
 import { toast } from '@/lib/toast';
 import { C, R, S, T } from '@/lib/theme';
 import { Button, Choice, Empty, ErrorState, Field, IconBtn, ListItem, Loading, Note, Tabs, ToggleRow, Txt } from '../ui';
-import { AddPanel, MessageList, NameField, NameList, useBotChange } from '../editors';
+import { AddPanel, MessageList, NameField, NameList, PresetOrNumber, useBotChange } from '../editors';
 import { PowerButton } from '../BotCard';
 import { StreamPlayer } from '../StreamPlayer';
-import { BotGold, OwnerEditor } from './mod';
+import { OwnerEditor } from './mod';
 import { Visitors } from './common';
 import { useSession } from '@/lib/session';
 
@@ -144,8 +144,18 @@ export function MusicSay({ d }: P) {
         onSave={(m, text) => save(lines.map((l, i) => (i === m.id ? text : l)))}
       />
       <Txt style={[T.sub, { fontWeight: '700', color: C.text }]}>⏰ {t('say.every')}</Txt>
-      <Choice<number> columns={3} value={EVERY.includes(iv) ? iv : null} onChange={(v) => save(lines, v)} options={EVERY.map((sec) => ({ value: sec, label: label(sec) }))} testID="every" />
-      {!EVERY.includes(iv) ? <Txt style={T.sub}>{t('say.everyNow', { n: iv })}</Txt> : null}
+      <PresetOrNumber
+        testID="every"
+        value={iv}
+        busy={busy}
+        onPick={(v) => save(lines, v)}
+        presets={EVERY.map((sec) => ({ value: sec, label: label(sec) }))}
+        fieldLabel={t('say.everyCustom')}
+        min={INPUT_LIMITS.intervalMin}
+        max={INPUT_LIMITS.intervalMax}
+        badText={t('say.everyBad')}
+        fmt={(n) => t('time.secs', { n })}
+      />
     </>
   );
 }
@@ -211,8 +221,8 @@ export function MusicTickets({ d }: P) {
           <ListItem
             key={x.username}
             emoji="🎟️"
-            title={`@${x.username}`}
-            sub={t('tickets.count', { n: x.tickets })}
+            title={at(x.username)}
+            sub={x.tickets === 1 ? t('tickets.count1') : t('tickets.count', { n: x.tickets })}
             right={
               <View style={{ flexDirection: 'row', gap: S.sm }}>
                 <IconBtn icon="remove" label={t('tickets.take')} onPress={() => change(x.username, -1)} disabled={busy} />
@@ -244,7 +254,6 @@ export function MusicActivity({ d }: P) {
   const q = useQuery({ queryKey: keys.extra('recent', 'music', id), queryFn: () => music.recentCommands(id), enabled: tab === 'commands', refetchInterval: 10000 });
   return (
     <>
-      <BotGold wallet={sOf(d).wallet} cmd="-musicwallet" />
       <Tabs<ActTab> value={tab} onChange={setTab} options={[{ value: 'visitors', emoji: '🚶', label: t('activity.visitors') }, { value: 'commands', emoji: '🎛️', label: t('activity.commands') }]} />
       {tab === 'visitors' ? <Visitors d={d} /> : q.isLoading ? <Loading /> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (q.data ?? []).length === 0 ? (
         <Empty emoji="🎛️" title={t('activity.commandsEmpty')} />
@@ -255,7 +264,7 @@ export function MusicActivity({ d }: P) {
               key={c.id}
               emoji={c.status === 'error' ? '❌' : c.status === 'done' ? CMD_EMOJI[c.action] ?? '🎵' : '⏳'}
               title={`${t(`cmd.${c.action}` as Key)}${c.args?.query ? `: ${c.args.query}` : ''}`}
-              sub={[c.requested_by && c.requested_by !== 'app' && c.requested_by.toLowerCase() !== me ? `@${c.requested_by}` : null, t(`cmdstatus.${c.status}` as Key), relTime(c.created_at, now)].filter(Boolean).join(' · ')}
+              sub={[c.requested_by && c.requested_by !== 'app' && c.requested_by.toLowerCase() !== me ? at(c.requested_by) : null, t(`cmdstatus.${c.status}` as Key), relTime(c.created_at, now)].filter(Boolean).join(' · ')}
             />
           ))}
         </View>

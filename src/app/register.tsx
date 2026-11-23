@@ -85,6 +85,7 @@ export default function Register() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
+            ltr
             returnKeyType="go"
             onSubmitEditing={() => check()}
             error={inviteErr ?? (link.trim() && !code ? t('reg.inviteBad') : null)}
@@ -121,6 +122,7 @@ export default function Register() {
               autoCorrect={false}
               autoComplete="username-new"
               textContentType="username"
+              ltr
               maxLength={EXTRA_LIMITS.newUserMax}
               returnKeyType="next"
               onSubmitEditing={() => pwRef.current?.focus()}
@@ -135,6 +137,7 @@ export default function Register() {
               onChangeText={setPw}
               secureTextEntry
               autoCapitalize="none"
+              ltr
               autoComplete="password-new"
               textContentType="newPassword"
               maxLength={EXTRA_LIMITS.passwordMax}
@@ -150,6 +153,7 @@ export default function Register() {
               onChangeText={setPw2}
               secureTextEntry
               autoCapitalize="none"
+              ltr
               autoComplete="password-new"
               textContentType="newPassword"
               maxLength={EXTRA_LIMITS.passwordMax}

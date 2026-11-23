@@ -11,6 +11,7 @@ import { Button, Card, Empty, ErrorState, Face, goBack, Loading, Note, Screen, S
 import { PowerButton, powerLook, TimeLeft } from '@/components/BotCard';
 import { PAGE_COLOR, PAGE_EMOJI, PAGES, pageSub, pageTitle, type PageKey } from '@/components/pages/meta';
 import { useBotPage } from '@/components/pages/useBotPage';
+import { BotGoldTile } from '@/components/BotGold';
 import type { Bot } from '@/api';
 
 function Hero({ bot }: { bot: Bot }) {
@@ -22,7 +23,7 @@ function Hero({ bot }: { bot: Bot }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
         <Face emoji={KIND_EMOJI[bot.kind]} color={KIND_COLOR[bot.kind]} size={76} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Txt style={[T.title, { fontSize: 24 }]} numberOfLines={2}>{bot.name}</Txt>
+          <Txt auto style={[T.title, { fontSize: 24 }]} numberOfLines={2}>{bot.name}</Txt>
           <Txt style={[T.sub, { color: KIND_COLOR[bot.kind] }]}>{t(`kind.${bot.kind}`)} · {t(`kind.${bot.kind}.d`)}</Txt>
         </View>
       </View>
@@ -49,6 +50,8 @@ export default function BotMenu() {
       ) : (
         <>
           <Hero bot={d.bot} />
+          {/* eigenes Gold des Bots in Highrise – nur Anzeige */}
+          <BotGoldTile d={d} />
           {!d.bot.bot_token_set ? <Note emoji="🔑" tone="warn" text={t('bot.noKey')} /> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.md }}>
             {PAGES[kind].map((p) => (

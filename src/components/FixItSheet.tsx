@@ -31,7 +31,7 @@ export function FixItSheet() {
         <Pressable style={{ flex: 1, backgroundColor: C.overlay }} onPress={closeFixIt} accessibilityLabel={t('common.close')} />
         <View style={{ backgroundColor: C.bg2, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, maxHeight: '90%', borderWidth: 1, borderColor: C.cardBorder }}>
           <View style={{ alignItems: 'center', paddingTop: 10 }}>
-            <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+            <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: C.borderStrong }} />
           </View>
           <ScrollView contentContainerStyle={{ padding: S.xl, paddingBottom: Math.max(insets.bottom, S.lg) + S.lg, gap: S.lg }}>
             <View style={{ alignItems: 'center', gap: S.sm }}>
@@ -81,7 +81,7 @@ function Cause({ n, text, children }: { n: number; text: string; children: React
     <View style={{ backgroundColor: C.card, borderRadius: R.md, padding: S.md, gap: S.md, borderWidth: 1, borderColor: C.cardBorder }}>
       <View style={{ flexDirection: 'row', gap: S.sm, alignItems: 'flex-start' }}>
         <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt style={[T.sub, { color: '#1a1203', fontWeight: '800', textAlign: 'center' }]} maxFontSizeMultiplier={1.2}>{n}</Txt>
+          <Txt style={[T.sub, { color: C.onAccent, fontWeight: '800', textAlign: 'center' }]} maxFontSizeMultiplier={1.2}>{n}</Txt>
         </View>
         <Txt style={[T.headline, { flex: 1 }]}>{text}</Txt>
       </View>

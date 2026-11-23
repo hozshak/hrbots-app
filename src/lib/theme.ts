@@ -40,6 +40,11 @@ export const C = {
   gray: '#5a6196',
   separator: '#15203f',
   overlay: 'rgba(2,3,10,0.72)',
+  white: '#ffffff',
+  /** Hintergrund der Bot-Meldungen (wie ein Terminal) */
+  logBg: '#000000',
+  /** Meldungen oben (Toast) */
+  toastBg: 'rgba(11,15,32,0.9)',
 };
 
 export const R = { xs: 6, sm: 8, md: 10, lg: 12, xl: 16, pill: 999 };
@@ -52,6 +57,10 @@ export function glow(color: string = C.accent, strength = 0.45): ViewStyle {
     web: { boxShadow: `0 0 18px ${hexA(color, strength)}` } as ViewStyle,
     default: {},
   })!;
+}
+/** Theme-Farbe mit Deckkraft (für Ränder/Flächen), z. B. alpha(C.gold, 0.45) */
+export function alpha(hex: string, a: number) {
+  return hexA(hex, a);
 }
 function hexA(hex: string, a: number) {
   const h = hex.replace('#', '');
@@ -100,5 +109,10 @@ export function setTextDirection(rtl: boolean) {
 // Farben je Bot-Art wie auf der Webseite: Welcome = Neon-Grün · Mod = Violett · Music = Cyan
 export const KIND_COLOR: Record<string, string> = { welcome: '#3df0a0', mod: '#9d5cff', music: '#2dd4ff' };
 export const KIND_EMOJI: Record<string, string> = { welcome: '👋', mod: '🛡️', music: '🎧' };
+/** Farben der Kacheln im Bot-Menü – alle aus der Webseiten-Palette */
+export const PAGE_TINT = {
+  say: C.violet, helpers: C.green, watch: C.accent, rules: C.red, places: C.orange, look: C.magenta, music: C.magenta,
+  tickets: C.gold, stand: C.accent, activity: C.text2, help: C.green, expert: C.text3,
+} as const;
 /** Haupt-Knöpfe: Verlauf Cyan → Lime (wie .btn-primary) */
 export const PRIMARY_GRADIENT = ['#2dd4ff', '#b6ff3c'] as const;
