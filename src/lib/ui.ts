@@ -37,17 +37,29 @@ export function openUrl(url: string) {
   WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET }).catch(() => {});
 }
 
-/** Raum-Link so umschreiben, dass iOS ihn der Highrise-App gibt.
- *  Die Highrise-App ist nur für Pfade wie /room/<id> und /world/<id> zuständig (apple-app-site-association).
- *  Links wie high.rs/room?id=<id> öffnen deshalb nur den Browser.
- *  Immer highrise.game, nie high.rs: high.rs leitet per 308 auf highrise.game weiter, und nach einer Weiterleitung
- *  öffnet iOS die App nicht mehr (1.3.2 mit high.rs/room/<id> landete so im Browser auf „Seite nicht gefunden“). */
+/** Raum-Link so, dass die Highrise-App aufgeht – genau wie highrise.game selbst es macht (Code der Highrise-Webseite):
+ *  iPhone: Singular-Link highrise.sng.link/Cxfcy/…?_dl=https://high.rs/room?id=<id> – dafür ist die Highrise-App
+ *  als Universal Link eingetragen (apple-app-site-association von highrise.sng.link); ohne App → App Store.
+ *  NICHT high.rs/room/… oder highrise.game/room/…: die landeten in 1.3.2/1.3.3 im Browser auf „page not found“. */
+const HR_APP_LINK = {
+  room: { ios: 'https://highrise.sng.link/Cxfcy/t9zw?_dl=https%3A%2F%2Fhigh.rs%2Froom%3Fid=', android: 'https://highrise.sng.link/Bxfcy/4npc?_dl=https%3A%2F%2Fhigh.rs%2Froom%3Fid=' },
+  world: { ios: 'https://highrise.sng.link/Cxfcy/8l8n?_dl=https%3A%2F%2Fhigh.rs%2Fworld%3Fid=', android: 'https://highrise.sng.link/Bxfcy/yo03?_dl=https%3A%2F%2Fhigh.rs%2Fworld%3Fid=' },
+} as const;
+
 export function highriseAppLink(url: string): string {
   const s = (url || '').trim();
-  const p = s.match(/^https?:\/\/(?:[\w-]+\.)*(?:high\.rs|highrise\.game)\/(room|world)\/([A-Za-z0-9_-]+)/i);
-  if (p) return `https://highrise.game/${p[1].toLowerCase()}/${p[2]}`;
-  const m = s.match(/[?&](?:ownedRoomId|id)=([a-f0-9]{24})/i) || s.match(/\/rooms?\/([a-f0-9]{24})(?![a-f0-9])/i) || s.match(/^([a-f0-9]{24})$/i);
-  return m ? `https://highrise.game/room/${m[1].toLowerCase()}` : s;
+  if (/^https:\/\/highrise\.sng\.link\//i.test(s)) return s;
+  let kind: 'room' | 'world' = 'room';
+  let id = '';
+  const p = s.match(/^https?:\/\/(?:[\w-]+\.)*(?:high\.rs|highrise\.game)\/(?:[a-z]{2}\/)?(room|world)\/([A-Za-z0-9_-]+)/i);
+  if (p) { kind = p[1].toLowerCase() as 'room' | 'world'; id = p[2]; }
+  else {
+    const m = s.match(/[?&](?:ownedRoomId|id)=([a-f0-9]{24})/i) || s.match(/\/rooms?\/([a-f0-9]{24})(?![a-f0-9])/i) || s.match(/^([a-f0-9]{24})$/i);
+    if (!m) return s;
+    id = m[1].toLowerCase();
+    if (/\/world\b/i.test(s)) kind = 'world';
+  }
+  return Platform.OS === 'android' ? HR_APP_LINK[kind].android + id : `${HR_APP_LINK[kind].ios}${id}&_smtype=3`;
 }
 
 /** Highrise-Raum-Link: über das System öffnen, damit die Highrise-App aufgeht (falls installiert), sonst Browser */
