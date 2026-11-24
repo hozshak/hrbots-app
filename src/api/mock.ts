@@ -303,7 +303,7 @@ function userFromToken(token: string | null) {
   if (!token || !token.startsWith('mock-')) fail(401, 'unauthorized', 'Missing or invalid bearer token');
   const username = decodeURIComponent(token!.slice(5));
   if (db.deletedUsers.has(username.toLowerCase())) fail(401, 'unauthorized', 'Missing or invalid bearer token');
-  return { id: 1, username, discord_linked: hasDiscord(username) };
+  return { id: 1, username, discord_linked: hasDiscord(username), link_provider: 'tolobby' as const };
 }
 
 const BOT_LIMITS: Record<BotKind, number> = { welcome: 3, mod: 2, music: 2 };
@@ -1023,7 +1023,9 @@ const routes: Route[] = [
   }],
   ['GET', /^\/me\/discord$/, (_m, _b, u) => {
     const linked = hasDiscord(u.username);
-    return { linked, discord_username: linked ? `${u.username.toLowerCase()}#discord` : null, required: true, verify_url: 'https://highrise-bots.com/verify', invite_url: 'https://discord.gg/kjbNyzPeKW' };
+    // Mock zeigt die neue Community ToLobby (Server: LINK_GATE="tolobby")
+    const name = linked ? u.username.toLowerCase() : null;
+    return { provider: 'tolobby', linked, account_name: name, discord_username: name, required: true, verify_url: 'https://highrise-bots.com/verify', invite_url: 'https://tolobby.com/i/DEMO' };
   }],
   // Einmal-Link; im Mock gilt Discord danach als „im Browser verbunden“
   ['POST', /^\/me\/discord\/web_link$/, (_m, _b, u) => {

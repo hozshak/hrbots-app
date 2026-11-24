@@ -35,7 +35,10 @@ export interface Bot {
 export interface User {
   id: number;
   username: string;
+  /** = mit der Pflicht-Community verbunden (Name aus Kompatibilität; gemeint ist Discord ODER ToLobby, siehe link_provider) */
   discord_linked: boolean;
+  /** welche Community Pflicht ist (ältere Server senden das nicht → Discord) */
+  link_provider?: 'discord' | 'tolobby' | 'off';
 }
 
 export interface LoginResult {
@@ -58,6 +61,7 @@ export interface InviteInfo {
   free_welcome: boolean;
   /** Einladung kam aus Discord → Konto ist sofort mit Discord verbunden */
   discord_linked: boolean;
+  link_provider?: 'discord' | 'tolobby' | 'off';
 }
 /** POST /auth/register → 201 (wie Login, plus free_welcome) */
 export interface RegisterResult extends LoginResult {
@@ -358,7 +362,13 @@ export interface SupportTicketDetail extends SupportTicket {
 
 /** Highrise-Konto verknüpfen (Code aus dem Bank-Raum) */
 export interface HighriseLink { linked: boolean; highrise_username: string | null }
-export interface DiscordInfo { linked: boolean; discord_username: string | null; required: boolean; verify_url: string; invite_url: string | null }
+export interface DiscordInfo {
+  linked: boolean; discord_username: string | null; required: boolean; verify_url: string; invite_url: string | null;
+  /** Discord oder ToLobby (ältere Server senden das nicht → Discord) */
+  provider?: 'discord' | 'tolobby' | 'off';
+  /** Name des verbundenen Kontos (= discord_username) */
+  account_name?: string | null;
+}
 /** POST /me/discord/web_link: Einmal-Link (5 min), öffnet im Browser ohne neues Anmelden die Discord-Seite */
 export interface DiscordWebLink { url: string; expires_at: string | null }
 

@@ -109,7 +109,7 @@ export default function Register() {
               ))}
             </View>
             {invite.info.free_welcome ? <Note emoji="🎁" tone="good" text={t('reg.freeWelcome')} /> : null}
-            {invite.info.discord_linked ? <Note emoji="💬" text={t('reg.discordIncluded')} /> : null}
+            {invite.info.discord_linked ? <Note emoji="💬" text={t('reg.discordIncluded', { p: invite.info.link_provider === 'tolobby' ? 'ToLobby' : 'Discord' })} /> : null}
             <Button label={t('reg.otherInvite')} variant="ghost" small onPress={() => { setInvite(null); setLink(''); }} />
           </Card>
 

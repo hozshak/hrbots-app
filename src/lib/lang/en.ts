@@ -40,12 +40,12 @@ export const en = {
   'login.demoHint': 'Any name and password work.',
 
   // discord
-  'discord.title': 'Connect Discord',
-  'discord.text': 'Your account needs Discord. It takes one minute.',
-  'discord.step1': '🌐 Tap “Connect Discord”. Our website opens – you are signed in already.',
-  'discord.step2': '💬 Join our Discord server, then tap “Connect with Discord”.',
+  'discord.title': 'Connect {p}',
+  'discord.text': 'Your account needs {p}. It takes one minute.',
+  'discord.step1': '🌐 Tap “Connect {p}”. Our website opens – you are signed in already.',
+  'discord.step2': '💬 Join our {p} server, then tap “Connect with {p}”.',
   'discord.step3': '↩️ Close the page. The app checks by itself.',
-  'discord.open': 'Connect Discord',
+  'discord.open': 'Connect {p}',
   'discord.check': 'I did it – check',
   'discord.stillMissing': 'Not connected yet.',
 
@@ -324,7 +324,7 @@ export const en = {
   'help.chatWordsSub': 'Type these in your Highrise room chat.',
   'help.stuck': 'Still stuck?',
   'help.writeUs': 'Write to our team',
-  'help.discord': 'Ask on Discord',
+  'help.discord': 'Ask on {p}',
 
   // fix it
   'fix.title': 'Let’s fix it',
@@ -333,7 +333,7 @@ export const en = {
   'fix.replaceKey': 'Change the bot key',
   'fix.checkRoom': 'Check the room',
   'fix.tryAgain': 'Try again',
-  'fix.support': 'Still stuck? Ask us on Discord',
+  'fix.support': 'Still stuck? Ask us on {p}',
 
   // expert
   'expert.intro': 'Here are the details. You rarely need them.',
@@ -392,8 +392,8 @@ export const en = {
   'wiz.kindQ': 'What should your bot do?',
   'wiz.kindFree': '{n} free',
   'wiz.kindFull': 'All used ({used} of {max})',
-  'wiz.kindFullMsg': 'You already have all the {kind} bots you may have ({max}). Ask our team on Discord if you need more.',
-  'wiz.allFull': 'All your bot places are used. Ask our team on Discord if you need more.',
+  'wiz.kindFullMsg': 'You already have all the {kind} bots you may have ({max}). Ask our team on {p} if you need more.',
+  'wiz.allFull': 'All your bot places are used. Ask our team on {p} if you need more.',
   'wiz.nameQ': 'Give it a name',
   'wiz.nameSub': 'Any name you like.',
   'wiz.namePh': 'e.g. Hello Bot',
@@ -450,7 +450,7 @@ export const en = {
 
   // account
   'account.title': 'Account',
-  'account.discord': 'Discord',
+  'account.discord': '{p}',
   'account.discordOn': 'Connected',
   'account.discordOff': 'Not connected',
   'account.language': 'Language',
@@ -567,7 +567,7 @@ export const en = {
   'err.account_disabled': 'This account is turned off.',
   'err.too_many_attempts': 'Too many tries. Wait 15 minutes.',
   'err.unauthorized': 'Please sign in again.',
-  'err.discord_required': 'Connect Discord first.',
+  'err.discord_required': 'Connect {p} first.',
   'err.no_runtime': 'This bot has no time left.',
   'err.agent_unreachable': 'Our bot server did not answer. Try again in a minute.',
   'err.limit_reached': 'You can’t add more of these.',
@@ -598,13 +598,13 @@ export const en = {
   'chat.q3': 'How do people ask for songs?',
   'chat.limit': 'The robot needs a break today. Write to our team instead.',
   'help.askBot': 'Ask the helper robot',
-  'discord.join': 'Join our Discord',
+  'discord.join': 'Join our {p} server',
   'account.discordAs': 'Connected as {name}',
 
   // ---- App 1.2: Registrieren, Bilder, Lieder hochladen, Radio hören, Bot-Gold, Chat-Wörter mit Rollen ----
   'login.haveInvite': 'I have an invite',
   'login.needInvite': 'New here? You need an invite from our team.',
-  'login.askInvite': 'Ask for an invite on Discord',
+  'login.askInvite': 'Get an invite',
   'reg.title': 'Make your account',
   'reg.inviteQ': 'Your invite link',
   'reg.invitePh': 'Paste the link here',
@@ -613,7 +613,7 @@ export const en = {
   'reg.inviteOk': 'Your invite works! 🎉',
   'reg.allowance': 'You can make:',
   'reg.freeWelcome': 'One greeter bot is free – it needs no time.',
-  'reg.discordIncluded': 'Your Discord is connected already.',
+  'reg.discordIncluded': 'Your {p} is connected already.',
   'reg.username': 'Pick a name',
   'reg.usernameHint': '2–32 letters or numbers (also . _ -). You sign in with it.',
   'reg.usernameBad': 'Only letters, numbers and . _ - (2–32).',
@@ -629,8 +629,8 @@ export const en = {
   'reg.otherInvite': 'Use another invite',
   'err.invalid_invite': 'This invite does not work. Maybe it was used already.',
   'err.username_taken': 'This name is taken. Try another one.',
-  'err.discord_taken': 'This Discord already has an HR Bots account.',
-  'discord.linked': 'Discord is connected! 🎉',
+  'err.discord_taken': 'This {p} account already has an HR Bots account.',
+  'discord.linked': '{p} is connected! 🎉',
   'account.ticketsNew1': '1 new answer',
   'account.ticketsNew': '{n} new answers',
   'img.add': 'Add a picture',

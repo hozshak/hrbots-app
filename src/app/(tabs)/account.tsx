@@ -10,7 +10,7 @@ import * as Application from 'expo-application';
 import { account, support, BOT_KINDS, MOCK, type Wallet, type WalletTx } from '@/api';
 import { keys } from '@/lib/query';
 import { connectDiscord, signOut, useSession } from '@/lib/session';
-import { getLangSetting, LANG_NAMES, t, type Key } from '@/lib/i18n';
+import { getLangSetting, LANG_NAMES, t, type Key, setCommunity } from '@/lib/i18n';
 import { at, fmtNum, relTime } from '@/lib/format';
 import { legalUrl } from '@/lib/content';
 import { toast } from '@/lib/toast';
@@ -70,6 +70,7 @@ export default function AccountTab() {
   const linked = !!user?.discord_linked;
   const wallet = useQuery({ queryKey: keys.wallet, queryFn: account.wallet, enabled: linked });
   const discord = useQuery({ queryKey: ['discord'], queryFn: account.discord });
+  if (discord.data?.provider) setCommunity(discord.data.provider);
   const tickets = useQuery({ queryKey: keys.tickets, queryFn: support.list, enabled: linked });
   // „neue Antwort“ = das Team hat geantwortet (Status answered), wie die Status-Anzeige der Webseite
   const answered = (tickets.data ?? []).filter((x) => x.status === 'answered').length;
@@ -107,7 +108,7 @@ export default function AccountTab() {
       <View style={{ gap: S.sm }}>
         <MenuRow
           testID="row-discord"
-          emoji="💬"
+          emoji={discord.data?.provider === 'tolobby' ? '🛋️' : '💬'}
           label={t('account.discord')}
           value={linked
             ? `✅ ${discord.data?.discord_username ? t('account.discordAs', { name: discord.data.discord_username }) : t('account.discordOn')}`

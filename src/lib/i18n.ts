@@ -95,9 +95,20 @@ export async function setLangSetting(s: LangSetting) {
   apply(s === 'auto' ? deviceLang() : s);
 }
 
+/** Name der Pflicht-Community für {p} in Texten: „Discord“ (bisher) oder „ToLobby“ – kommt vom Server (link_provider). */
+let communityLabel = 'Discord';
+export function setCommunity(provider?: string | null) {
+  if (provider === 'tolobby') communityLabel = 'ToLobby';
+  else if (provider === 'discord') communityLabel = 'Discord';
+}
+export function communityName() {
+  return communityLabel;
+}
+
 export function t(key: Key, params?: Record<string, string | number>) {
   let s = DICTS[current][key] ?? en[key] ?? key;
   if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));
+  if (s.includes('{p}')) s = s.split('{p}').join(communityLabel);
   return s;
 }
 

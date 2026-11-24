@@ -3,9 +3,9 @@ import { useRef, useState } from 'react';
 import { Image, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MOCK } from '@/api';
-import { SUPPORT_DISCORD } from '@/lib/content';
+import { JOIN_URL } from '@/lib/content';
 import { signIn } from '@/lib/session';
-import { errorText, t } from '@/lib/i18n';
+import { errorText, getLang, t } from '@/lib/i18n';
 import { haptic, openUrl } from '@/lib/ui';
 import { C, glow, R, S, T } from '@/lib/theme';
 import { Button, Card, Field, IconBtn, Screen, Txt } from '@/components/ui';
@@ -73,7 +73,7 @@ export default function Login() {
       <Card style={{ gap: S.md }}>
         <Txt style={[T.callout, { textAlign: 'center' }]}>{t('login.needInvite')}</Txt>
         <Button label={t('login.haveInvite')} emoji="💌" variant="secondary" onPress={() => router.push('/register')} testID="login-invite" />
-        <Button label={t('login.askInvite')} emoji="💬" variant="ghost" small onPress={() => openUrl(SUPPORT_DISCORD)} />
+        <Button label={t('login.askInvite')} emoji="🎟️" variant="ghost" small onPress={() => openUrl(`${JOIN_URL}&lang=${getLang()}`)} />
       </Card>
       {MOCK ? <Txt style={[T.caption, { textAlign: 'center', color: C.yellow }]}>🧪 {t('common.demo')}{'\n'}{t('login.demoHint')}{'\n'}DEMO-INVITE-1234</Txt> : null}
     </Screen>

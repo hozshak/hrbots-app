@@ -5,13 +5,14 @@ import * as Application from 'expo-application';
 import * as WebBrowser from 'expo-web-browser';
 import { account, auth, loadToken, saveToken, setErrorHooks, ApiError, SITE, type RegisterInput, type User } from '@/api';
 import { queryClient } from './query';
-import { getLang } from './i18n';
+import { getLang, setCommunity } from './i18n';
 
 type State = { phase: 'booting' | 'out' | 'in'; user: User | null };
 let state: State = { phase: 'booting', user: null };
 const subs = new Set<() => void>();
 function set(next: Partial<State>) {
   state = { ...state, ...next };
+  if (state.user?.link_provider) setCommunity(state.user.link_provider);
   subs.forEach((f) => f());
 }
 export function useSession() {

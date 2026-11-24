@@ -13,7 +13,10 @@ export type GuideKey =
   | 'register' | 'newBot' | 'startStop' | 'password' | 'djSongs' | 'radio';
 
 export const CREATE_HIGHRISE = 'https://create.highrise.game';
-export const SUPPORT_DISCORD = 'https://discord.gg/kjbNyzPeKW';
+/** Unsere Community (leitet je nach Server-Einstellung zu ToLobby oder Discord weiter) */
+export const SUPPORT_DISCORD = 'https://highrise-bots.com/community';
+/** Einladung holen: Seite der Webseite (ToLobby-Anmeldung → persönlicher Einladungs-Link) */
+export const JOIN_URL = 'https://highrise-bots.com/join?app=1';
 /** Raum des HR-Bots-Helfers, der den Verknüpfungs-Code flüstert */
 export const LINK_ROOM = 'https://high.rs/room/6738fee568d4398a5e864aa4';
 
@@ -67,7 +70,7 @@ const en: Pack = {
     },
     register: {
       title: 'Make an account',
-      steps: ['💌 Get an invite link from our team (ask on Discord).', '👆 On the sign-in page tap “I have an invite”.', '📋 Paste the link and tap “Check invite”.', '🙂 Pick a name and a password.', '✅ Accept the rules and tap “Create account”.', '💬 Then connect Discord – the app shows you how.'],
+      steps: ['💌 Tap “Get an invite” on the sign-in page and get your personal invite link.', '👆 On the sign-in page tap “I have an invite”.', '📋 Paste the link and tap “Check invite”.', '🙂 Pick a name and a password.', '✅ Accept the rules and tap “Create account”.', '💬 If the app asks you to connect your community account, just follow the steps.'],
     },
     newBot: {
       title: 'Make a new bot',
@@ -116,7 +119,7 @@ const en: Pack = {
     { q: 'What does “time left” mean?', a: 'It shows how long your bot can still be on.' },
     { q: 'How do I change the language?', a: 'Account → Language.' },
     { q: 'How do I delete my account?', a: 'Account → Delete account. You need your password. All your bots are deleted too.' },
-    { q: 'How do I get an account?', a: 'You need an invite from our team. Ask us on Discord. Then tap “I have an invite” on the sign-in page.', guide: 'register' },
+    { q: 'How do I get an account?', a: 'You need an invite. Tap “Get an invite” on the sign-in page. Then tap “I have an invite” on the sign-in page.', guide: 'register' },
     { q: 'What is the difference between a greeter and a guard?', a: 'The greeter says hello to everyone who comes in. The guard keeps your room safe: warnings, bad words, VIP areas, places to jump to and more.' },
     { q: 'Do I lose my settings when I change the room?', a: 'No. Messages, helpers and everything else stay. Change the room in Expert settings.' },
     { q: 'How do I make someone a helper of my bot?', a: 'Open the bot → Helpers → Add. They can then use the chat words.' },
@@ -170,7 +173,7 @@ const de: Pack = {
     },
     register: {
       title: 'Ein Konto machen',
-      steps: ['💌 Hol dir einen Einladungs-Link von unserem Team (frag auf Discord).', '👆 Tippe beim Anmelden auf „Ich habe eine Einladung“.', '📋 Füg den Link ein und tippe auf „Einladung prüfen“.', '🙂 Such dir einen Namen und ein Passwort aus.', '✅ Regeln annehmen und auf „Konto erstellen“ tippen.', '💬 Dann Discord verbinden – die App zeigt dir, wie.'],
+      steps: ['💌 Tippe beim Anmelden auf „Einladung holen“ und hol dir deinen persönlichen Einladungs-Link.', '👆 Tippe beim Anmelden auf „Ich habe eine Einladung“.', '📋 Füg den Link ein und tippe auf „Einladung prüfen“.', '🙂 Such dir einen Namen und ein Passwort aus.', '✅ Regeln annehmen und auf „Konto erstellen“ tippen.', '💬 Fragt die App nach deinem Community-Konto, folge einfach den Schritten.'],
     },
     newBot: {
       title: 'Einen neuen Bot machen',
@@ -219,7 +222,7 @@ const de: Pack = {
     { q: 'Was heißt „Zeit übrig“?', a: 'So lange kann dein Bot noch an sein.' },
     { q: 'Wie ändere ich die Sprache?', a: 'Konto → Sprache.' },
     { q: 'Wie lösche ich mein Konto?', a: 'Konto → Konto löschen. Du brauchst dein Passwort. Alle Bots werden auch gelöscht.' },
-    { q: 'Wie bekomme ich ein Konto?', a: 'Du brauchst eine Einladung von unserem Team. Frag uns auf Discord. Dann tippe beim Anmelden auf „Ich habe eine Einladung“.', guide: 'register' },
+    { q: 'Wie bekomme ich ein Konto?', a: 'Du brauchst eine Einladung. Tippe beim Anmelden auf „Einladung holen“. Dann tippe beim Anmelden auf „Ich habe eine Einladung“.', guide: 'register' },
     { q: 'Was ist der Unterschied zwischen Begrüßer und Wächter?', a: 'Der Begrüßer sagt allen Hallo, die reinkommen. Der Wächter passt auf deinen Raum auf: Verwarnungen, böse Wörter, VIP-Bereiche, Orte zum Hinspringen und mehr.' },
     { q: 'Verliere ich Einstellungen, wenn ich den Raum ändere?', a: 'Nein. Nachrichten, Helfer und alles andere bleiben. Den Raum änderst du in den Experten-Einstellungen.' },
     { q: 'Wie mache ich jemanden zum Helfer meines Bots?', a: 'Öffne den Bot → Helfer → Hinzufügen. Dann darf die Person die Chat-Wörter benutzen.' },
@@ -273,7 +276,7 @@ const ar: Pack = {
     },
     register: {
       title: 'أنشئ حسابًا',
-      steps: ['💌 احصل على رابط دعوة من فريقنا (اسأل في Discord).', '👆 في صفحة الدخول اضغط «لدي دعوة».', '📋 الصق الرابط واضغط «افحص الدعوة».', '🙂 اختر اسمًا وكلمة مرور.', '✅ وافق على القواعد واضغط «إنشاء الحساب».', '💬 ثم اربط Discord – يريك التطبيق كيف.'],
+      steps: ['💌 اضغط «احصل على دعوة» في صفحة الدخول واحصل على رابط دعوتك الشخصي.', '👆 في صفحة الدخول اضغط «لدي دعوة».', '📋 الصق الرابط واضغط «افحص الدعوة».', '🙂 اختر اسمًا وكلمة مرور.', '✅ وافق على القواعد واضغط «إنشاء الحساب».', '💬 إذا طلب التطبيق ربط حساب المجتمع، اتبع الخطوات فقط.'],
     },
     newBot: {
       title: 'اصنع بوتًا جديدًا',
@@ -322,7 +325,7 @@ const ar: Pack = {
     { q: 'ماذا يعني «الوقت المتبقي»؟', a: 'يوضح كم من الوقت يمكن أن يبقى البوت شغّالًا.' },
     { q: 'كيف أغيّر اللغة؟', a: 'الحساب ← اللغة.' },
     { q: 'كيف أحذف حسابي؟', a: 'الحساب ← حذف الحساب. تحتاج كلمة المرور. ستُحذف كل البوتات أيضًا.' },
-    { q: 'كيف أحصل على حساب؟', a: 'تحتاج دعوة من فريقنا. اسألنا في Discord. ثم اضغط «لدي دعوة» في صفحة الدخول.', guide: 'register' },
+    { q: 'كيف أحصل على حساب؟', a: 'تحتاج دعوة. اضغط «احصل على دعوة» في صفحة الدخول. ثم اضغط «لدي دعوة» في صفحة الدخول.', guide: 'register' },
     { q: 'ما الفرق بين بوت الترحيب وبوت الحراسة؟', a: 'بوت الترحيب يرحّب بكل من يدخل. بوت الحراسة يحمي غرفتك: تحذيرات، كلمات ممنوعة، مناطق VIP، أماكن للانتقال وأكثر.' },
     { q: 'هل أفقد إعداداتي إذا غيّرت الغرفة؟', a: 'لا. الرسائل والمساعدون وكل شيء آخر يبقى. غيّر الغرفة في إعدادات الخبراء.' },
     { q: 'كيف أجعل شخصًا مساعدًا لبوتي؟', a: 'افتح البوت ← المساعدون ← إضافة. بعدها يستطيع استخدام كلمات الدردشة.' },
