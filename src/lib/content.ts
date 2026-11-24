@@ -15,7 +15,7 @@ export type GuideKey =
 export const CREATE_HIGHRISE = 'https://create.highrise.game';
 export const SUPPORT_DISCORD = 'https://discord.gg/kjbNyzPeKW';
 /** Raum des HR-Bots-Helfers, der den Verknüpfungs-Code flüstert */
-export const LINK_ROOM = 'https://high.rs/room?id=6738fee568d4398a5e864aa4';
+export const LINK_ROOM = 'https://high.rs/room/6738fee568d4398a5e864aa4';
 
 type Pack = {
   guides: Record<GuideKey, Guide>;

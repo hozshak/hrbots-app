@@ -37,8 +37,19 @@ export function openUrl(url: string) {
   WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET }).catch(() => {});
 }
 
+/** Raum-Link so umschreiben, dass iOS ihn der Highrise-App gibt.
+ *  Die Highrise-App ist nur für Pfade wie /room/<id> und /world/<id> zuständig (apple-app-site-association
+ *  von high.rs). Links wie high.rs/room?id=<id> öffnen deshalb nur den Browser. */
+export function highriseAppLink(url: string): string {
+  const s = (url || '').trim();
+  if (/^https?:\/\/([\w-]+\.)*(high\.rs|highrise\.game)\/(room|world)\/[A-Za-z0-9_-]+/i.test(s)) return s;
+  const m = s.match(/[?&](?:ownedRoomId|id)=([a-f0-9]{24})/i) || s.match(/\/rooms?\/([a-f0-9]{24})(?![a-f0-9])/i) || s.match(/^([a-f0-9]{24})$/i);
+  return m ? `https://high.rs/room/${m[1].toLowerCase()}` : s;
+}
+
 /** Highrise-Raum-Link: über das System öffnen, damit die Highrise-App aufgeht (falls installiert), sonst Browser */
 export function openRoom(url: string) {
-  if (Platform.OS === 'web') return openUrl(url);
-  Linking.openURL(url).catch(() => openUrl(url));
+  const link = highriseAppLink(url);
+  if (Platform.OS === 'web') return openUrl(link);
+  Linking.openURL(link).catch(() => openUrl(link));
 }
