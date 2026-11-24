@@ -368,7 +368,11 @@ export const ar: Record<Key, string> = {
 
   'wiz.title': 'بوت جديد',
   'wiz.step': 'الخطوة {n} من {total}',
-  'wiz.kindQ': 'ماذا يفعل بوتك؟',
+  'wiz.kindQ': 'ماذا يفعل بوتك؟',
+  'wiz.kindFree': '{n} متاح',
+  'wiz.kindFull': 'كلها مستخدمة ({used} من {max})',
+  'wiz.kindFullMsg': 'لديك بالفعل كل بوتات {kind} المسموح بها ({max}). اسأل فريقنا على Discord إذا احتجت المزيد.',
+  'wiz.allFull': 'كل أماكن البوتات لديك مستخدمة. اسأل فريقنا على Discord إذا احتجت المزيد.',
   'wiz.nameQ': 'اختر له اسمًا',
   'wiz.nameSub': 'أي اسم يعجبك.',
   'wiz.namePh': 'مثلًا: بوت الترحيب',

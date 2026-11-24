@@ -368,7 +368,11 @@ export const de: Record<Key, string> = {
 
   'wiz.title': 'Neuer Bot',
   'wiz.step': 'Schritt {n} von {total}',
-  'wiz.kindQ': 'Was soll dein Bot machen?',
+  'wiz.kindQ': 'Was soll dein Bot machen?',
+  'wiz.kindFree': '{n} frei',
+  'wiz.kindFull': 'Alle belegt ({used} von {max})',
+  'wiz.kindFullMsg': 'Du hast schon alle {kind}-Bots, die du haben darfst ({max}). Frag unser Team auf Discord, wenn du mehr brauchst.',
+  'wiz.allFull': 'Alle deine Bot-Plätze sind belegt. Frag unser Team auf Discord, wenn du mehr brauchst.',
   'wiz.nameQ': 'Gib ihm einen Namen',
   'wiz.nameSub': 'Jeder Name, den du magst.',
   'wiz.namePh': 'z. B. Hallo-Bot',

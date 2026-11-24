@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, INPUT_LIMITS, type Bot, type BotKind } from '@/api';
+import { account, bots, cleanUsername, isBotToken, isUsername, parseRoom, BOT_KINDS, INPUT_LIMITS, type Bot, type BotKind } from '@/api';
 import { keys, powerBot, queryClient } from '@/lib/query';
 import { at, hasRuntime } from '@/lib/format';
 import { content, CREATE_HIGHRISE } from '@/lib/content';
@@ -60,6 +61,12 @@ export default function NewBot() {
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<{ bot: Bot; started: boolean } | null>(null);
   const [clipHasText, setClipHasText] = useState(false);
+
+  // Freie Plätze pro Bot-Art: volle Arten gleich am Anfang sperren (nicht erst nach allen Schritten scheitern)
+  const me = useQuery({ queryKey: keys.me, queryFn: account.me, staleTime: 0 });
+  const freeOf = (k: BotKind): number | null =>
+    me.data ? Math.max(0, (me.data.limits[k] ?? 0) - (me.data.counts[k] ?? 0)) : null;
+  const allFull = !!me.data && BOT_KINDS.every((k) => freeOf(k) === 0);
 
   const steps = stepsFor(kind);
   const idx = steps.indexOf(step);
@@ -206,16 +213,24 @@ export default function NewBot() {
         {step === 'kind' ? (
           <>
             <Question step="kind" title={t('wiz.kindQ')} />
+            {allFull ? <Note emoji="🔒" text={t('wiz.allFull')} /> : null}
             {BOT_KINDS.map((k) => {
               const on = kind === k;
+              const free = freeOf(k);
+              const full = free === 0;
               return (
                 <Pressable
                   key={k}
                   testID={`kind-${k}`}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${t(`kind.${k}`)}. ${t(`kind.${k}.d`)}`}
+                  accessibilityState={{ selected: on, disabled: full }}
+                  accessibilityLabel={`${t(`kind.${k}`)}. ${full ? t('wiz.kindFull', { used: me.data?.counts[k] ?? 0, max: me.data?.limits[k] ?? 0 }) : t(`kind.${k}.d`)}`}
                   onPress={() => {
+                    if (full) {
+                      haptic.error();
+                      toast(t('wiz.kindFullMsg', { kind: t(`kind.${k}`), max: me.data?.limits[k] ?? 0 }), 'info');
+                      return;
+                    }
                     haptic.select();
                     setKind(k);
                     setTimeout(() => go('name'), 200);
@@ -226,14 +241,20 @@ export default function NewBot() {
                       backgroundColor: pressed || on ? C.elevated : C.card, borderWidth: on ? 2 : 1, borderColor: on ? KIND_COLOR[k] : C.cardBorder,
                     },
                     on ? glow(KIND_COLOR[k], 0.35) : null,
+                    full ? { opacity: 0.45 } : null,
                   ]}
                 >
                   <Face emoji={KIND_EMOJI[k]} color={KIND_COLOR[k]} size={72} />
                   <View style={{ flex: 1, gap: 4 }}>
                     <Txt style={[T.big, { fontSize: 22 }]}>{t(`kind.${k}`)}</Txt>
                     <Txt style={[T.callout, { fontSize: 16 }]}>{t(`kind.${k}.d`)}</Txt>
+                    {free !== null ? (
+                      <Txt style={[T.callout, { fontSize: 14, fontWeight: '700', color: full ? C.text3 : KIND_COLOR[k] }]}>
+                        {full ? `🔒 ${t('wiz.kindFull', { used: me.data?.counts[k] ?? 0, max: me.data?.limits[k] ?? 0 })}` : `✅ ${t('wiz.kindFree', { n: free })}`}
+                      </Txt>
+                    ) : null}
                   </View>
-                  <Ionicons name={on ? 'checkmark-circle' : fwdIcon()} size={30} color={on ? KIND_COLOR[k] : C.text3} />
+                  <Ionicons name={full ? 'lock-closed' : on ? 'checkmark-circle' : fwdIcon()} size={30} color={full ? C.text3 : on ? KIND_COLOR[k] : C.text3} />
                 </Pressable>
               );
             })}

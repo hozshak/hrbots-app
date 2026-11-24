@@ -389,7 +389,11 @@ export const en = {
   // wizard
   'wiz.title': 'New bot',
   'wiz.step': 'Step {n} of {total}',
-  'wiz.kindQ': 'What should your bot do?',
+  'wiz.kindQ': 'What should your bot do?',
+  'wiz.kindFree': '{n} free',
+  'wiz.kindFull': 'All used ({used} of {max})',
+  'wiz.kindFullMsg': 'You already have all the {kind} bots you may have ({max}). Ask our team on Discord if you need more.',
+  'wiz.allFull': 'All your bot places are used. Ask our team on Discord if you need more.',
   'wiz.nameQ': 'Give it a name',
   'wiz.nameSub': 'Any name you like.',
   'wiz.namePh': 'e.g. Hello Bot',
