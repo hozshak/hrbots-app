@@ -38,13 +38,16 @@ export function openUrl(url: string) {
 }
 
 /** Raum-Link so umschreiben, dass iOS ihn der Highrise-App gibt.
- *  Die Highrise-App ist nur für Pfade wie /room/<id> und /world/<id> zuständig (apple-app-site-association
- *  von high.rs). Links wie high.rs/room?id=<id> öffnen deshalb nur den Browser. */
+ *  Die Highrise-App ist nur für Pfade wie /room/<id> und /world/<id> zuständig (apple-app-site-association).
+ *  Links wie high.rs/room?id=<id> öffnen deshalb nur den Browser.
+ *  Immer highrise.game, nie high.rs: high.rs leitet per 308 auf highrise.game weiter, und nach einer Weiterleitung
+ *  öffnet iOS die App nicht mehr (1.3.2 mit high.rs/room/<id> landete so im Browser auf „Seite nicht gefunden“). */
 export function highriseAppLink(url: string): string {
   const s = (url || '').trim();
-  if (/^https?:\/\/([\w-]+\.)*(high\.rs|highrise\.game)\/(room|world)\/[A-Za-z0-9_-]+/i.test(s)) return s;
+  const p = s.match(/^https?:\/\/(?:[\w-]+\.)*(?:high\.rs|highrise\.game)\/(room|world)\/([A-Za-z0-9_-]+)/i);
+  if (p) return `https://highrise.game/${p[1].toLowerCase()}/${p[2]}`;
   const m = s.match(/[?&](?:ownedRoomId|id)=([a-f0-9]{24})/i) || s.match(/\/rooms?\/([a-f0-9]{24})(?![a-f0-9])/i) || s.match(/^([a-f0-9]{24})$/i);
-  return m ? `https://high.rs/room/${m[1].toLowerCase()}` : s;
+  return m ? `https://highrise.game/room/${m[1].toLowerCase()}` : s;
 }
 
 /** Highrise-Raum-Link: über das System öffnen, damit die Highrise-App aufgeht (falls installiert), sonst Browser */
