@@ -16,6 +16,7 @@ import { Button, Txt } from '@/components/ui';
 
 type VersionInfo = { latest: string | null; min: string | null; store_url: string };
 const APP_STORE_ID = '6838086083';
+const PLAY_ID = 'de.feierabendcode.hrbots';
 const RECHECK_MS = 30 * 60 * 1000;
 
 /** „1.3.10“ > „1.3.9“: Zahl für Zahl vergleichen. <0 = a älter als b. */
@@ -34,9 +35,9 @@ export function currentVersion(): string {
 }
 
 async function openStore(url: string) {
-  const native = `itms-apps://apps.apple.com/app/id${APP_STORE_ID}`;
+  const native = Platform.OS === 'android' ? `market://details?id=${PLAY_ID}` : `itms-apps://apps.apple.com/app/id${APP_STORE_ID}`;
   try {
-    if (Platform.OS === 'ios' && (await Linking.canOpenURL(native))) return await Linking.openURL(native);
+    if (Platform.OS !== 'web') return await Linking.openURL(native);
   } catch {}
   Linking.openURL(url).catch(() => {});
 }
@@ -46,13 +47,13 @@ export function UpdateGate() {
   const [later, setLater] = useState<string | null>(null); // „Später“ für diese Version, nur bis zum nächsten Start
   const lastCheck = useRef(0);
   // nur im iPhone-App und in der Browser-Vorschau mit Beispieldaten – nicht auf der echten Webseite
-  const active = Platform.OS === 'ios' || MOCK;
+  const active = Platform.OS === 'ios' || Platform.OS === 'android' || MOCK;
 
   const check = useCallback(async () => {
     if (!active || Date.now() - lastCheck.current < RECHECK_MS) return;
     lastCheck.current = Date.now();
     try {
-      setInfo(await request<VersionInfo>('GET', '/app/version'));
+      setInfo(await request<VersionInfo>('GET', Platform.OS === 'android' ? '/app/version?platform=android' : '/app/version'));
     } catch {
       lastCheck.current = 0; // nächstes Mal erneut versuchen
     }
@@ -85,11 +86,11 @@ export function UpdateGate() {
             <Ionicons name={forced ? 'arrow-up' : 'sparkles'} size={34} color={C.onAccent} />
           </View>
           <Txt style={[T.title, { textAlign: 'center' }]}>{t(forced ? 'update.forcedTitle' : 'update.title')}</Txt>
-          <Txt style={[T.body, { color: C.text2, textAlign: 'center' }]}>{t(forced ? 'update.forcedText' : 'update.text')}</Txt>
+          <Txt style={[T.body, { color: C.text2, textAlign: 'center' }]}>{t(forced ? (Platform.OS === 'android' ? 'update.forcedTextAndroid' : 'update.forcedText') : 'update.text')}</Txt>
           {info.latest ? (
             <Txt style={[T.caption, { color: C.dim, textAlign: 'center' }]}>{t('update.versions', { mine, latest: info.latest })}</Txt>
           ) : null}
-          <Button label={t('update.now')} icon="logo-apple-appstore" onPress={() => openStore(info.store_url)} style={{ alignSelf: 'stretch', marginTop: S.sm }} testID="update-now" />
+          <Button label={t('update.now')} icon={Platform.OS === 'android' ? 'logo-google-playstore' : 'logo-apple-appstore'} onPress={() => openStore(info.store_url)} style={{ alignSelf: 'stretch', marginTop: S.sm }} testID="update-now" />
           {!forced ? <Button label={t('update.later')} variant="ghost" small onPress={() => setLater(info.latest)} style={{ alignSelf: 'stretch' }} testID="update-later" /> : null}
         </View>
       </View>

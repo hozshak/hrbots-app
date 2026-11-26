@@ -12,3 +12,8 @@ android/
 .env*
 npm-debug.*
 .DS_Store
+
+# Android-Signatur – nie ins Repo
+credentials.json
+*.jks
+*.keystore
