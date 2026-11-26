@@ -1131,6 +1131,11 @@ const routes: Route[] = [
 export const mockHandler: Handler = async (method, path, body, token) => {
   await wait(180 + Math.random() * 220);
   const b: Body = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  // Update-Hinweis testen: EXPO_PUBLIC_MOCK_UPDATE=new (neue Version) · =forced (Pflicht-Update) · sonst kein Hinweis
+  if (method === 'GET' && path === '/app/version') {
+    const mode = process.env.EXPO_PUBLIC_MOCK_UPDATE;
+    return { platform: 'ios', latest: mode === 'new' || mode === 'forced' ? '9.0.0' : null, min: mode === 'forced' ? '9.0.0' : null, store_url: 'https://apps.apple.com/app/id6838086083' };
+  }
   if (method === 'POST' && path === '/auth/login') {
     if (typeof b.username !== 'string' || typeof b.password !== 'string' || !b.username.trim() || !b.password) {
       fail(400, 'missing_fields', 'username and password are required');

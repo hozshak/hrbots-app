@@ -692,4 +692,11 @@ export const ar: Record<Key, string> = {
   'err.owner_not_in_room': 'لا نراك في الغرفة. ادخل الغرفة أولًا.',
   'err.bot_not_in_room': 'البوت ليس في الغرفة الآن.',
   'err.timeout': 'لا يوجد رد في الوقت المحدد. حاول مرة أخرى.',
+  'update.title': 'يتوفر إصدار جديد',
+  'update.text': 'حدّث HR Bots للحصول على أحدث التحسينات والإصلاحات. لن يستغرق ذلك سوى لحظة.',
+  'update.forcedTitle': 'يرجى تحديث HR Bots',
+  'update.forcedText': 'لم يعد هذا الإصدار مدعومًا. حدّث التطبيق من App Store لمواصلة استخدام بوتاتك.',
+  'update.versions': 'إصدارك {mine} · الجديد {latest}',
+  'update.now': 'حدّث الآن',
+  'update.later': 'لاحقًا',
 };

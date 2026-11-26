@@ -19,6 +19,7 @@ import { C } from '@/lib/theme';
 import { loadLang, useLang } from '@/lib/i18n';
 import { ToastHost } from '@/components/Toast';
 import { FixItSheet } from '@/components/FixItSheet';
+import { UpdateGate } from '@/components/UpdateGate';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -85,6 +86,7 @@ export default function Root() {
             </Stack>
             <FixItSheet />
             <ToastHost />
+            <UpdateGate />
           </View>
         </QueryClientProvider>
       </SafeAreaProvider>

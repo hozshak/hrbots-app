@@ -692,4 +692,11 @@ export const de: Record<Key, string> = {
   'err.owner_not_in_room': 'Wir sehen dich nicht im Raum. Geh zuerst in den Raum.',
   'err.bot_not_in_room': 'Der Bot ist gerade nicht im Raum.',
   'err.timeout': 'Keine Antwort in der Zeit. Versuch es nochmal.',
+  'update.title': 'Neue Version verfügbar',
+  'update.text': 'Aktualisiere HR Bots, um die neuesten Verbesserungen und Fehlerbehebungen zu bekommen. Das dauert nur einen Moment.',
+  'update.forcedTitle': 'Bitte HR Bots aktualisieren',
+  'update.forcedText': 'Diese Version wird nicht mehr unterstützt. Aktualisiere die App im App Store, um deine Bots weiter zu nutzen.',
+  'update.versions': 'Deine Version {mine} · Neu {latest}',
+  'update.now': 'Jetzt aktualisieren',
+  'update.later': 'Später',
 };

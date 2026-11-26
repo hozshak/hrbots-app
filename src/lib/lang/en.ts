@@ -723,6 +723,13 @@ export const en = {
   'err.owner_not_in_room': 'We can’t see you in the room. Go into the room first.',
   'err.bot_not_in_room': 'The bot is not in the room right now.',
   'err.timeout': 'No answer in time. Try again.',
+  'update.title': 'New version available',
+  'update.text': 'Update HR Bots to get the latest improvements and fixes. It only takes a moment.',
+  'update.forcedTitle': 'Please update HR Bots',
+  'update.forcedText': 'This version is no longer supported. Update the app in the App Store to keep using your bots.',
+  'update.versions': 'Your version {mine} · New {latest}',
+  'update.now': 'Update now',
+  'update.later': 'Later',
 };
 
 export type Key = keyof typeof en;
